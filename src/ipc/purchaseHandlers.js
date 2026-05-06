@@ -1,0 +1,11 @@
+const { ipcMain } = require('electron')
+const purchaseRepository = require('../database/purchaseRepository')
+
+ipcMain.handle('purchases:create', (_, data) => purchaseRepository.create(data))
+ipcMain.handle('purchases:getAll', (_, filters) => purchaseRepository.findAll(filters))
+ipcMain.handle('purchases:getById', (_, id) => purchaseRepository.findById(id))
+ipcMain.handle('purchases:getUnpaid', () => purchaseRepository.findUnpaid())
+ipcMain.handle('purchases:addPayment', (_, id, amount, note) => purchaseRepository.addPayment(id, amount, note))
+ipcMain.handle('purchases:extendDueDate', (_, id, newDate) => purchaseRepository.extendDueDate(id, newDate))
+ipcMain.handle('purchases:getDueSoon', () => purchaseRepository.getDueSoon())
+ipcMain.handle('purchases:getOverdue', () => purchaseRepository.getOverdue())

@@ -1,0 +1,10 @@
+const { ipcMain } = require('electron')
+const receivableRepository = require('../database/receivableRepository')
+
+ipcMain.handle('receivables:create', (_, data) => receivableRepository.create(data))
+ipcMain.handle('receivables:getAll', (_, filters) => receivableRepository.findAll(filters))
+ipcMain.handle('receivables:getUnpaid', () => receivableRepository.findUnpaid())
+ipcMain.handle('receivables:addPayment', (_, id, amount, note) => receivableRepository.addPayment(id, amount, note))
+ipcMain.handle('receivables:extendDueDate', (_, id, newDate) => receivableRepository.extendDueDate(id, newDate))
+ipcMain.handle('receivables:getDueSoon', () => receivableRepository.getDueSoon())
+ipcMain.handle('receivables:getSummary', () => receivableRepository.getSummary())

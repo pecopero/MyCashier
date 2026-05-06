@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node --version && which node && ls ~/.nvm/versions/node/ 2>/dev/null || echo \"nvm not found\")",
+      "Read(//Users/peco/.nvm/versions/node/**)",
+      "Bash(git init *)",
+      "Bash(git remote *)",
+      "Bash(git branch *)",
+      "Bash(git add *)"
+    ]
+  }
+}

@@ -1,0 +1,33 @@
+name: Build Windows Installer
+
+on:
+  workflow_dispatch:        # jalankan manual dari tab Actions
+  push:
+    tags: ['v*']            # atau otomatis saat push tag seperti v1.0.0
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout kode
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Windows installer
+        run: npm run build:win
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: KasirApp-Windows-${{ github.sha }}
+          path: dist-electron/*.exe
+          retention-days: 30
