@@ -8,9 +8,9 @@
     "dev": "concurrently \"npm run dev:vite\" \"npm run dev:electron\"",
     "dev:vite": "vite",
     "dev:electron": "wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .",
-    "build": "vite build && electron-builder",
-    "build:win": "vite build && electron-builder --win",
-    "build:mac": "vite build && electron-builder --mac",
+    "build": "vite build && electron-builder --publish never",
+    "build:win": "vite build && electron-builder --win --publish never",
+    "build:mac": "vite build && electron-builder --mac --publish never",
     "preview": "vite preview"
   },
   "build": {
