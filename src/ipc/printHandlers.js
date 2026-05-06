@@ -26,6 +26,8 @@ function buildReceiptHTML(tx, settings) {
       <td class="amount">- ${fmt(tx.discount)}</td>
     </tr>` : ''
 
+  const footerLines = (settings.receipt_note || '').split('\n').filter(l => l.trim())
+
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -41,6 +43,7 @@ function buildReceiptHTML(tx, settings) {
   }
   .center { text-align: center; }
   .store-name { font-size: 15px; font-weight: bold; }
+  .tagline { font-size: 11px; color: #444; margin-top: 2px; }
   .divider { border-top: 1px dashed #000; margin: 6px 0; }
   table { width: 100%; border-collapse: collapse; }
   td { padding: 1px 0; vertical-align: top; }
@@ -48,7 +51,7 @@ function buildReceiptHTML(tx, settings) {
   .qty { color: #333; font-size: 11px; }
   .amount { text-align: right; white-space: nowrap; }
   .total-row td { font-weight: bold; font-size: 13px; border-top: 1px dashed #000; padding-top: 4px; }
-  .note { font-size: 11px; text-align: center; margin-top: 6px; }
+  .note { font-size: 11px; text-align: center; margin-top: 4px; line-height: 1.5; }
   @media print {
     @page { margin: 0; size: 58mm auto; }
   }
@@ -57,11 +60,12 @@ function buildReceiptHTML(tx, settings) {
 <body>
   <div class="center">
     <div class="store-name">${settings.store_name || 'Toko Saya'}</div>
+    ${settings.store_tagline ? `<div class="tagline">${settings.store_tagline}</div>` : ''}
     ${settings.store_address ? `<div>${settings.store_address}</div>` : ''}
     ${settings.store_phone ? `<div>Telp: ${settings.store_phone}</div>` : ''}
   </div>
   <div class="divider"></div>
-  <div>${date}</div>
+  <div>No: #${tx.id || '—'} &nbsp;|&nbsp; ${date}</div>
   <div class="divider"></div>
 
   <table>
@@ -82,7 +86,7 @@ function buildReceiptHTML(tx, settings) {
   </table>
 
   <div class="divider"></div>
-  ${settings.receipt_note ? `<div class="note">${settings.receipt_note}</div>` : ''}
+  ${footerLines.length > 0 ? `<div class="note">${footerLines.join('<br/>')}</div>` : ''}
 </body>
 </html>`
 }
@@ -111,7 +115,7 @@ ipcMain.handle('print:receipt', async (_, tx) => {
   })
 })
 
-ipcMain.handle('print:preview', (_, tx) => {
-  const settings = settingsRepository.getAll()
+ipcMain.handle('print:preview', (_, tx, settingsOverride) => {
+  const settings = settingsOverride || settingsRepository.getAll()
   return buildReceiptHTML(tx, settings)
 })

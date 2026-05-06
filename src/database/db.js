@@ -34,6 +34,7 @@ function initSchema() {
 
     INSERT OR IGNORE INTO settings (key, value) VALUES
       ('store_name',    'Toko Saya'),
+      ('store_tagline', ''),
       ('store_address', ''),
       ('store_phone',   ''),
       ('receipt_note',  'Terima kasih atas kunjungan Anda!'),

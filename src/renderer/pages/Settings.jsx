@@ -1,5 +1,40 @@
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useAuth } from '../context/AuthContext'
+
+const SAMPLE_TX = {
+  id: 1,
+  created_at: new Date().toISOString(),
+  subtotal: 75000,
+  discount: 5000,
+  total: 70000,
+  payment: 100000,
+  change: 30000,
+  items: [
+    { product_name: 'Contoh Produk A', quantity: 2, price: 15000, subtotal: 30000 },
+    { product_name: 'Contoh Produk B', quantity: 1, price: 45000, subtotal: 45000 },
+  ],
+}
+
+function ReceiptPreviewModal({ html, onClose }) {
+  return createPortal(
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-2xl p-4 flex flex-col items-center gap-3 max-h-[90vh]"
+        onClick={e => e.stopPropagation()}>
+        <div className="flex justify-between items-center w-full">
+          <h3 className="font-semibold text-gray-800 text-sm">Preview Struk</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg leading-none">×</button>
+        </div>
+        <div className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-inner">
+          <iframe srcDoc={html} title="Preview Struk"
+            style={{ width: '320px', height: '480px', border: 'none', display: 'block' }} />
+        </div>
+        <p className="text-xs text-gray-400">Tampilan menggunakan data contoh</p>
+      </div>
+    </div>,
+    document.body
+  )
+}
 
 function Section({ title, children }) {
   return (
@@ -139,15 +174,17 @@ function UserManager() {
 
 export default function Settings() {
   const [form, setForm] = useState({
-    store_name: '', store_address: '', store_phone: '', receipt_note: '', tax_percent: '0',
+    store_name: '', store_tagline: '', store_address: '', store_phone: '', receipt_note: '', tax_percent: '0',
   })
   const [saved, setSaved] = useState(false)
   const [backupMsg, setBackupMsg] = useState('')
+  const [previewHtml, setPreviewHtml] = useState(null)
 
   useEffect(() => {
     window.electronAPI.getSettings().then(s => {
       setForm({
         store_name:    s.store_name    ?? '',
+        store_tagline: s.store_tagline ?? '',
         store_address: s.store_address ?? '',
         store_phone:   s.store_phone   ?? '',
         receipt_note:  s.receipt_note  ?? '',
@@ -155,6 +192,11 @@ export default function Settings() {
       })
     })
   }, [])
+
+  const handlePreview = async () => {
+    const html = await window.electronAPI.previewReceipt(SAMPLE_TX, form)
+    setPreviewHtml(html)
+  }
 
   const handleSave = async (e) => {
     e.preventDefault()
@@ -187,11 +229,18 @@ export default function Settings() {
     <div className="p-6 max-w-2xl">
       <h1 className="text-xl font-bold text-gray-800 mb-6">Pengaturan</h1>
 
+      {previewHtml && <ReceiptPreviewModal html={previewHtml} onClose={() => setPreviewHtml(null)} />}
+
       <form onSubmit={handleSave}>
         <Section title="Informasi Toko">
-          <Field label="Nama Toko" hint="Tampil di header struk">
+          <Field label="Nama Toko" hint="Tampil tebal di header struk">
             <input className={input} value={form.store_name}
               onChange={e => setForm(f => ({ ...f, store_name: e.target.value }))} />
+          </Field>
+          <Field label="Tagline / Slogan" hint="Baris kecil di bawah nama toko (opsional)">
+            <input className={input} value={form.store_tagline}
+              onChange={e => setForm(f => ({ ...f, store_tagline: e.target.value }))}
+              placeholder="Contoh: Melayani dengan sepenuh hati" />
           </Field>
           <Field label="Alamat" hint="Opsional">
             <input className={input} value={form.store_address}
@@ -204,10 +253,10 @@ export default function Settings() {
         </Section>
 
         <Section title="Pengaturan Struk">
-          <Field label="Catatan Struk" hint="Tampil di bawah struk">
-            <input className={input} value={form.receipt_note}
+          <Field label="Catatan Footer" hint="Tampil di bawah struk, bisa multi-baris (Enter untuk baris baru)">
+            <textarea rows={4} className={input} value={form.receipt_note}
               onChange={e => setForm(f => ({ ...f, receipt_note: e.target.value }))}
-              placeholder="Terima kasih atas kunjungan Anda!" />
+              placeholder={'Terima kasih atas kunjungan Anda!\nSampai jumpa kembali :)'} />
           </Field>
           <Field label="Pajak (%)" hint="0 = tanpa pajak">
             <input type="number" min="0" max="100" className={input} value={form.tax_percent}
@@ -215,10 +264,14 @@ export default function Settings() {
           </Field>
         </Section>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <button type="submit"
             className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
             Simpan Pengaturan
+          </button>
+          <button type="button" onClick={handlePreview}
+            className="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium text-sm border border-gray-200">
+            Preview Struk
           </button>
           {saved && <span className="text-green-600 text-sm font-medium">✓ Tersimpan</span>}
         </div>

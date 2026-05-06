@@ -83,7 +83,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Print
   printReceipt: (tx) => ipcRenderer.invoke('print:receipt', tx),
-  previewReceipt: (tx) => ipcRenderer.invoke('print:preview', tx),
+  previewReceipt: (tx, settingsOverride) => ipcRenderer.invoke('print:preview', tx, settingsOverride),
 
   // Export Excel
   exportSales: (filters) => ipcRenderer.invoke('export:sales', filters),
