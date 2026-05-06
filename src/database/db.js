@@ -156,6 +156,38 @@ function initSchema() {
 
     INSERT OR IGNORE INTO users (id, name, pin, role) VALUES (1, 'Owner', '123456', 'owner');
 
+    CREATE TABLE IF NOT EXISTS stock_opnames (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      date TEXT NOT NULL,
+      note TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS stock_opname_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      opname_id INTEGER NOT NULL,
+      product_id INTEGER NOT NULL,
+      product_name TEXT NOT NULL,
+      system_stock INTEGER NOT NULL,
+      actual_stock INTEGER NOT NULL,
+      difference INTEGER NOT NULL,
+      FOREIGN KEY (opname_id) REFERENCES stock_opnames(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS promos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      type TEXT NOT NULL DEFAULT 'percent',
+      value REAL NOT NULL DEFAULT 0,
+      min_purchase REAL NOT NULL DEFAULT 0,
+      product_id INTEGER,
+      start_date TEXT NOT NULL,
+      end_date TEXT NOT NULL,
+      active INTEGER NOT NULL DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL
+    );
+
     CREATE TABLE IF NOT EXISTS purchase_items (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       purchase_id INTEGER NOT NULL,

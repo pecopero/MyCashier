@@ -95,4 +95,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getProfitLossReport: (filters) => ipcRenderer.invoke('reports:profitLoss', filters),
   getDashboardData: () => ipcRenderer.invoke('reports:dashboard'),
   getLowStockReport: () => ipcRenderer.invoke('reports:lowStock'),
+
+  // Stock Opname
+  getStockOpnames: () => ipcRenderer.invoke('stockOpname:getAll'),
+  getStockOpnameById: (id) => ipcRenderer.invoke('stockOpname:getById', id),
+  createStockOpname: (data) => ipcRenderer.invoke('stockOpname:create', data),
+
+  // Promos
+  getPromos: () => ipcRenderer.invoke('promos:getAll'),
+  getActivePromos: (date) => ipcRenderer.invoke('promos:getActive', date),
+  createPromo: (data) => ipcRenderer.invoke('promos:create', data),
+  updatePromo: (id, data) => ipcRenderer.invoke('promos:update', id, data),
+  deletePromo: (id) => ipcRenderer.invoke('promos:delete', id),
 })
