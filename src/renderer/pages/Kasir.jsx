@@ -21,38 +21,44 @@ function CartItem({ item, onQtyChange, onRemove, onDiscountChange }) {
     <div className="py-2 border-b border-gray-100">
       <div className="flex items-center gap-3">
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium truncate">{item.productName}</p>
+          <p className="text-sm font-medium truncate">
+            {item.productName}
+            {item.unitName && <span className="text-xs text-gray-400 font-normal ml-1">({item.unitName})</span>}
+            {item.wholesaleMinQty > 0 && item.price === item.wholesalePrice && (
+              <span className="ml-1 px-1 py-0.5 bg-purple-100 text-purple-700 text-[10px] font-semibold rounded">GROSIR</span>
+            )}
+          </p>
           <button onClick={() => setShowDisc(s => !s)}
             className="text-xs text-gray-400 hover:text-blue-500 transition-colors">
             {item.itemDiscount > 0 ? `Diskon: −${formatRupiah(discountAmt)}` : '+ diskon item'}
           </button>
         </div>
         <div className="flex items-center gap-1">
-          <button onClick={() => onQtyChange(item.productId, item.quantity - 1)}
+          <button onClick={() => onQtyChange(item.cartKey, item.quantity - 1)}
             className="w-6 h-6 rounded bg-gray-200 hover:bg-gray-300 text-sm font-bold shrink-0">−</button>
           <input type="number" min="1" value={item.quantity}
-            onChange={e => { const v = parseInt(e.target.value, 10); if (!isNaN(v)) onQtyChange(item.productId, v) }}
+            onChange={e => { const v = parseInt(e.target.value, 10); if (!isNaN(v)) onQtyChange(item.cartKey, v) }}
             onFocus={e => e.target.select()}
             className="w-12 text-center text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 py-0.5" />
-          <button onClick={() => onQtyChange(item.productId, item.quantity + 1)}
+          <button onClick={() => onQtyChange(item.cartKey, item.quantity + 1)}
             className="w-6 h-6 rounded bg-gray-200 hover:bg-gray-300 text-sm font-bold shrink-0">+</button>
         </div>
         <span className="text-sm font-medium w-20 text-right shrink-0">{formatRupiah(item.subtotal)}</span>
-        <button onClick={() => onRemove(item.productId)} className="text-red-400 hover:text-red-600 text-lg leading-none">×</button>
+        <button onClick={() => onRemove(item.cartKey)} className="text-red-400 hover:text-red-600 text-lg leading-none">×</button>
       </div>
       {showDisc && (
         <div className="flex gap-1 mt-1.5 pl-0">
           <div className="flex rounded border border-gray-300 overflow-hidden text-xs">
-            <button onClick={() => onDiscountChange(item.productId, item.itemDiscount, 'nominal')}
+            <button onClick={() => onDiscountChange(item.cartKey, item.itemDiscount, 'nominal')}
               className={`px-2 py-1 font-medium ${item.itemDiscountType === 'nominal' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500'}`}>Rp</button>
-            <button onClick={() => onDiscountChange(item.productId, item.itemDiscount, 'percent')}
+            <button onClick={() => onDiscountChange(item.cartKey, item.itemDiscount, 'percent')}
               className={`px-2 py-1 font-medium ${item.itemDiscountType === 'percent' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500'}`}>%</button>
           </div>
           <input type="number" min="0" placeholder="0" value={item.itemDiscount || ''}
-            onChange={e => onDiscountChange(item.productId, parseFloat(e.target.value) || 0, item.itemDiscountType)}
+            onChange={e => onDiscountChange(item.cartKey, parseFloat(e.target.value) || 0, item.itemDiscountType)}
             className="w-24 px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
           {item.itemDiscount > 0 && (
-            <button onClick={() => { onDiscountChange(item.productId, 0, 'nominal'); setShowDisc(false) }}
+            <button onClick={() => { onDiscountChange(item.cartKey, 0, 'nominal'); setShowDisc(false) }}
               className="text-xs text-gray-400 hover:text-red-500 px-1">hapus</button>
           )}
         </div>
@@ -133,12 +139,44 @@ function OpenShiftModal({ user, onOpen, onCancel }) {
   )
 }
 
+function UnitPickerModal({ product, units, baseUnit, onSelect, onClose }) {
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-xl p-5 w-72" onClick={e => e.stopPropagation()}>
+        <h3 className="font-bold text-gray-800 mb-1">{product.name}</h3>
+        <p className="text-xs text-gray-400 mb-3">Pilih satuan</p>
+        <div className="space-y-2">
+          {/* Satuan dasar */}
+          <button onClick={() => onSelect({ unitName: baseUnit, conversion: 1, price: product.price })}
+            className="w-full flex justify-between items-center px-4 py-3 rounded-lg border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-colors text-sm">
+            <span className="font-medium text-gray-800">{baseUnit || 'pcs'}</span>
+            <span className="text-blue-600 font-bold">{new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',minimumFractionDigits:0}).format(product.price)}</span>
+          </button>
+          {/* Satuan tambahan */}
+          {units.map(u => (
+            <button key={u.id} onClick={() => onSelect({ unitName: u.unit_name, conversion: u.conversion, price: u.price })}
+              className={`w-full flex justify-between items-center px-4 py-3 rounded-lg border transition-colors text-sm ${u.is_default ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-blue-400 hover:bg-blue-50'}`}>
+              <div className="text-left">
+                <span className="font-medium text-gray-800">{u.unit_name}</span>
+                <span className="text-xs text-gray-400 ml-2">= {u.conversion} {baseUnit || 'pcs'}</span>
+              </div>
+              <span className="text-blue-600 font-bold">{new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',minimumFractionDigits:0}).format(u.price)}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function Kasir() {
   const { currentUser } = useAuth()
   const { products, loading, reload: reloadProducts } = useProducts()
   const { categories } = useCategories()
   const [activeShift, setActiveShift] = useState(null)
   const [showOpenShift, setShowOpenShift] = useState(false)
+  const [productUnits, setProductUnits] = useState({})
+  const [unitPicker, setUnitPicker] = useState(null)
 
   useEffect(() => {
     if (currentUser) {
@@ -148,6 +186,11 @@ export default function Kasir() {
       })
     }
   }, [currentUser?.id])
+
+  useEffect(() => {
+    window.electronAPI.getAllProductUnits().then(setProductUnits)
+  }, [])
+
   const [cart, setCart] = useState([])
   const [search, setSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState('Semua')
@@ -180,23 +223,60 @@ export default function Kasir() {
     return Math.max(0, price * qty - discAmt)
   }
 
+  const getEffectivePrice = (retailPrice, wholesalePrice, wholesaleMinQty, qty) => {
+    if (wholesaleMinQty > 0 && wholesalePrice > 0 && qty >= wholesaleMinQty) return wholesalePrice
+    return retailPrice
+  }
+
   const addToCart = useCallback((product) => {
     if (product.stock === 0) return
     setCart(prev => {
-      const existing = prev.find(i => i.productId === product.id)
+      const key = String(product.id)
+      const existing = prev.find(i => i.cartKey === key)
       if (existing) {
         const qty = existing.quantity + 1
-        return prev.map(i => i.productId === product.id
-          ? { ...i, quantity: qty, subtotal: calcSubtotal(i.price, qty, i.itemDiscount, i.itemDiscountType) }
+        const price = getEffectivePrice(existing.retailPrice, existing.wholesalePrice, existing.wholesaleMinQty, qty)
+        return prev.map(i => i.cartKey === key
+          ? { ...i, quantity: qty, price, subtotal: calcSubtotal(price, qty, i.itemDiscount, i.itemDiscountType) }
           : i)
       }
       return [...prev, {
-        productId: product.id, productName: product.name, price: product.price,
+        cartKey: key, productId: product.id, productName: product.name,
+        price: product.price, retailPrice: product.price,
+        wholesalePrice: product.wholesale_price || 0,
+        wholesaleMinQty: product.wholesale_min_qty || 0,
+        unitName: product.unit || 'pcs', conversion: 1,
         quantity: 1, subtotal: product.price,
         itemDiscount: 0, itemDiscountType: 'nominal',
       }]
     })
   }, [])
+
+  const handleProductClick = useCallback((product) => {
+    const units = productUnits[product.id] || []
+    if (units.length > 0) setUnitPicker(product)
+    else addToCart(product)
+  }, [productUnits, addToCart])
+
+  const addToCartWithUnit = (product, { unitName, conversion, price }) => {
+    setCart(prev => {
+      const key = `${product.id}-${unitName}`
+      const existing = prev.find(i => i.cartKey === key)
+      if (existing) {
+        const qty = existing.quantity + 1
+        return prev.map(i => i.cartKey === key
+          ? { ...i, quantity: qty, subtotal: calcSubtotal(price, qty, i.itemDiscount, i.itemDiscountType) }
+          : i)
+      }
+      return [...prev, {
+        cartKey: key, productId: product.id, productName: product.name,
+        price, unitName, conversion,
+        quantity: 1, subtotal: price,
+        itemDiscount: 0, itemDiscountType: 'nominal',
+      }]
+    })
+    setUnitPicker(null)
+  }
 
   // Barcode scanner: USB scanner types chars rapidly then sends Enter
   const handleSearchKeyDown = async (e) => {
@@ -206,34 +286,36 @@ export default function Kasir() {
       // Try exact barcode match first
       const byBarcode = await window.electronAPI.getProductByBarcode(val)
       if (byBarcode) {
-        addToCart(byBarcode)
+        handleProductClick(byBarcode)
         setSearch('')
         return
       }
       // Fallback: if only 1 result in filtered list, add it
       const filtered = products.filter(p => p.name.toLowerCase().includes(val.toLowerCase()))
       if (filtered.length === 1) {
-        addToCart(filtered[0])
+        handleProductClick(filtered[0])
         setSearch('')
       }
     }
   }
 
-  const changeQty = (productId, qty) => {
-    if (qty <= 0) setCart(prev => prev.filter(i => i.productId !== productId))
-    else setCart(prev => prev.map(i => i.productId === productId
-      ? { ...i, quantity: qty, subtotal: calcSubtotal(i.price, qty, i.itemDiscount, i.itemDiscountType) }
-      : i))
+  const changeQty = (cartKey, qty) => {
+    if (qty <= 0) { setCart(prev => prev.filter(i => i.cartKey !== cartKey)); return }
+    setCart(prev => prev.map(i => {
+      if (i.cartKey !== cartKey) return i
+      const price = getEffectivePrice(i.retailPrice ?? i.price, i.wholesalePrice, i.wholesaleMinQty, qty)
+      return { ...i, quantity: qty, price, subtotal: calcSubtotal(price, qty, i.itemDiscount, i.itemDiscountType) }
+    }))
   }
 
-  const changeItemDiscount = (productId, discount, discType) => {
-    setCart(prev => prev.map(i => i.productId === productId
+  const changeItemDiscount = (cartKey, discount, discType) => {
+    setCart(prev => prev.map(i => i.cartKey === cartKey
       ? { ...i, itemDiscount: discount, itemDiscountType: discType,
           subtotal: calcSubtotal(i.price, i.quantity, discount, discType) }
       : i))
   }
 
-  const removeItem = (productId) => setCart(prev => prev.filter(i => i.productId !== productId))
+  const removeItem = (cartKey) => setCart(prev => prev.filter(i => i.cartKey !== cartKey))
 
   const subtotal = cart.reduce((sum, i) => sum + i.subtotal, 0)
   const discountNum = parseFloat(discount) || 0
@@ -266,6 +348,8 @@ export default function Kasir() {
         costPrice: products.find(p => p.id === i.productId)?.cost_price ?? 0,
         itemDiscount: i.itemDiscount ?? 0,
         itemDiscountType: i.itemDiscountType ?? 'nominal',
+        unitName: i.unitName ?? '',
+        conversion: i.conversion ?? 1,
       })),
       subtotal, discount: discountAmount, discountType, total,
       payment: isCredit ? paymentNum : totalPaid,
@@ -361,6 +445,16 @@ export default function Kasir() {
           }} />
       )}
 
+      {unitPicker && (
+        <UnitPickerModal
+          product={unitPicker}
+          units={productUnits[unitPicker.id] || []}
+          baseUnit={unitPicker.unit || 'pcs'}
+          onSelect={(unit) => addToCartWithUnit(unitPicker, unit)}
+          onClose={() => setUnitPicker(null)}
+        />
+      )}
+
     <div className="flex flex-1 gap-0 min-h-0">
       {/* Product Grid */}
       <div className="flex-1 p-4 overflow-auto">
@@ -383,13 +477,16 @@ export default function Kasir() {
               const isLow = product.stock <= (product.min_stock ?? 5)
               const isEmpty = product.stock === 0
               return (
-                <button key={product.id} onClick={() => !isEmpty && addToCart(product)} disabled={isEmpty}
+                <button key={product.id} onClick={() => !isEmpty && handleProductClick(product)} disabled={isEmpty}
                   className={`relative bg-white rounded-lg p-3 text-left shadow-sm border transition-all ${
                     isEmpty ? 'border-gray-200 opacity-50 cursor-not-allowed'
                     : isLow  ? 'border-orange-300 hover:border-orange-400 hover:shadow-md'
                     :          'border-gray-200 hover:border-blue-400 hover:shadow-md'}`}>
                   {isLow && !isEmpty && <span className="absolute top-1.5 right-1.5 text-orange-500 text-xs">⚠</span>}
                   {isEmpty && <span className="absolute top-1.5 right-1.5 bg-red-100 text-red-600 text-xs px-1 rounded">Habis</span>}
+                  {!isEmpty && !isLow && product.wholesale_price > 0 && product.wholesale_min_qty > 0 && (
+                    <span className="absolute top-1.5 left-1.5 bg-purple-100 text-purple-700 text-[9px] font-bold px-1 rounded leading-tight">G</span>
+                  )}
                   <p className="font-medium text-sm truncate pr-6">{product.name}</p>
                   <p className="text-blue-600 font-bold text-sm mt-1">{formatRupiah(product.price)}</p>
                   <p className={`text-xs mt-1 ${isLow ? 'text-orange-500 font-medium' : 'text-gray-400'}`}>Stok: {product.stock}</p>
@@ -410,7 +507,7 @@ export default function Kasir() {
         <div className="flex-1 overflow-auto px-4 py-2">
           {cart.length === 0
             ? <p className="text-gray-400 text-sm text-center mt-8">Keranjang kosong</p>
-            : cart.map(item => <CartItem key={item.productId} item={item} onQtyChange={changeQty} onRemove={removeItem} onDiscountChange={changeItemDiscount} />)}
+            : cart.map(item => <CartItem key={item.cartKey} item={item} onQtyChange={changeQty} onRemove={removeItem} onDiscountChange={changeItemDiscount} />)}
         </div>
 
         <div className="p-4 border-t border-gray-200 space-y-2.5">

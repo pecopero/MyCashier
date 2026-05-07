@@ -100,7 +100,80 @@ function ImportModal({ onClose, onDone }) {
   )
 }
 
-const EMPTY_FORM = { name: '', price: '', cost_price: '', stock: '', min_stock: '5', category: '', barcode: '' }
+const COMMON_UNITS = [
+  { group: 'Umum',    list: ['pcs','buah','biji','unit','set','pasang'] },
+  { group: 'Berat',   list: ['gram','ons','kg','kwintal','ton'] },
+  { group: 'Volume',  list: ['ml','cl','dl','liter','cc'] },
+  { group: 'Kemasan', list: ['pak','bungkus','sachet','botol','kaleng','dus','karton','koli','sak','bal','slop','jerigen','galon'] },
+  { group: 'Panjang', list: ['cm','meter','yard','roll','gulung','lembar','helai','rim'] },
+  { group: 'Hitungan',list: ['lusin','kodi','gross'] },
+]
+const ALL_UNITS = COMMON_UNITS.flatMap(g => g.list)
+
+const EMPTY_FORM = { name: '', price: '', cost_price: '', stock: '', min_stock: '5', unit: 'pcs', category: '', barcode: '', wholesale_price: '', wholesale_min_qty: '' }
+const EMPTY_UNIT = () => ({ unit_name: '', conversion: '', price: '', is_default: false })
+
+function UnitManager({ baseUnit, units, onChange }) {
+  const inp = 'px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+
+  const add = () => onChange([...units, EMPTY_UNIT()])
+
+  const update = (i, field, val) => {
+    const next = units.map((u, idx) => idx === i ? { ...u, [field]: val } : u)
+    onChange(next)
+  }
+
+  const setDefault = (i) => onChange(units.map((u, idx) => ({ ...u, is_default: idx === i })))
+
+  const remove = (i) => onChange(units.filter((_, idx) => idx !== i))
+
+  return (
+    <div className="space-y-2">
+      {units.length === 0 && (
+        <p className="text-xs text-gray-400 italic">Belum ada satuan tambahan — produk dijual per satuan dasar ({baseUnit || 'pcs'}).</p>
+      )}
+      {units.map((u, i) => (
+        <div key={i} className="bg-gray-50 rounded-lg p-2.5 space-y-2">
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <label className="block text-xs text-gray-500 mb-0.5">Nama Satuan</label>
+              <input list="unit-suggestions" value={u.unit_name} placeholder="mis. lusin, bal, kg"
+                onChange={e => update(i, 'unit_name', e.target.value)}
+                className={`w-full ${inp}`} />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-0.5">= berapa {baseUnit || 'pcs'}?</label>
+              <input type="number" min="0.001" step="any" value={u.conversion} placeholder="mis. 12"
+                onChange={e => update(i, 'conversion', e.target.value)}
+                className={`w-full ${inp}`} />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-0.5">Harga Jual (Rp)</label>
+              <input type="number" min="0" value={u.price} placeholder="mis. 48000"
+                onChange={e => update(i, 'price', e.target.value)}
+                className={`w-full ${inp}`} />
+            </div>
+          </div>
+          <div className="flex items-center justify-between">
+            <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
+              <input type="radio" name="default-unit" checked={!!u.is_default} onChange={() => setDefault(i)}
+                className="accent-blue-600" />
+              Tampilkan sebagai default di kasir
+            </label>
+            <button type="button" onClick={() => remove(i)} className="text-xs text-red-400 hover:text-red-600">Hapus</button>
+          </div>
+        </div>
+      ))}
+      <button type="button" onClick={add}
+        className="w-full py-2 border border-dashed border-blue-300 text-blue-600 text-xs rounded-lg hover:bg-blue-50 transition-colors">
+        + Tambah Satuan
+      </button>
+      <datalist id="unit-suggestions">
+        {ALL_UNITS.map(u => <option key={u} value={u} />)}
+      </datalist>
+    </div>
+  )
+}
 
 function MarginBadge({ price, costPrice }) {
   if (!costPrice || costPrice <= 0) return null
@@ -122,22 +195,31 @@ export default function Products() {
   const { products, loading, createProduct, updateProduct, deleteProduct, reload } = useProducts()
   const { categories, createCategory, updateCategory, deleteCategory } = useCategories()
   const [form, setForm] = useState(EMPTY_FORM)
+  const [units, setUnits] = useState([])
   const [editId, setEditId] = useState(null)
   const [showForm, setShowForm] = useState(false)
   const [showImport, setShowImport] = useState(false)
 
-  const resetForm = () => { setForm(EMPTY_FORM); setEditId(null); setShowForm(false) }
+  const resetForm = () => { setForm(EMPTY_FORM); setUnits([]); setEditId(null); setShowForm(false) }
 
-  const openEdit = (product) => {
+  const openEdit = async (product) => {
     setForm({
       name: product.name,
       price: String(product.price),
       cost_price: String(product.cost_price ?? 0),
       stock: String(product.stock),
       min_stock: String(product.min_stock ?? 5),
+      unit: product.unit ?? 'pcs',
       category: product.category ?? '',
       barcode: product.barcode ?? '',
+      wholesale_price: product.wholesale_price > 0 ? String(product.wholesale_price) : '',
+      wholesale_min_qty: product.wholesale_min_qty > 0 ? String(product.wholesale_min_qty) : '',
     })
+    const existingUnits = await window.electronAPI.getProductUnits(product.id)
+    setUnits(existingUnits.map(u => ({
+      unit_name: u.unit_name, conversion: String(u.conversion),
+      price: String(u.price), is_default: !!u.is_default,
+    })))
     setEditId(product.id)
     setShowForm(true)
   }
@@ -148,13 +230,19 @@ export default function Products() {
       name: form.name,
       price: parseFloat(form.price) || 0,
       cost_price: parseFloat(form.cost_price) || 0,
-      stock: parseInt(form.stock, 10) || 0,
-      min_stock: parseInt(form.min_stock, 10) || 5,
+      stock: parseFloat(form.stock) || 0,
+      min_stock: parseFloat(form.min_stock) || 5,
+      unit: form.unit || 'pcs',
       category: form.category,
       barcode: form.barcode,
+      wholesale_price: parseFloat(form.wholesale_price) || 0,
+      wholesale_min_qty: parseFloat(form.wholesale_min_qty) || 0,
     }
+    let savedId = editId
     if (editId) await updateProduct(editId, data)
-    else await createProduct(data)
+    else { const p = await createProduct(data); savedId = p.id }
+    const validUnits = units.filter(u => u.unit_name.trim() && parseFloat(u.conversion) > 0)
+    if (savedId) await window.electronAPI.saveProductUnits(savedId, validUnits)
     resetForm()
   }
 
@@ -240,10 +328,57 @@ export default function Products() {
                   categories={categories} onAdd={createCategory} onUpdate={updateCategory} onDelete={deleteCategory} />
               </div>
 
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Satuan Dasar</label>
+                  <input list="unit-suggestions" value={form.unit}
+                    onChange={e => setField('unit')(e.target.value)}
+                    placeholder="pcs / kg / liter / gram…"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                  <datalist id="unit-suggestions">
+                    {ALL_UNITS.map(u => <option key={u} value={u} />)}
+                  </datalist>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Barcode</label>
+                  <input type="text" value={form.barcode} onChange={e => setField('barcode')(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                </div>
+              </div>
+
+              <div className="border border-dashed border-gray-300 rounded-lg p-3 space-y-2">
+                <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Harga Grosir
+                  <span className="ml-1 font-normal text-gray-400 normal-case">(opsional — aktif otomatis saat beli ≥ jumlah minimum)</span>
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-0.5">Harga Grosir (Rp)</label>
+                    <input type="number" min="0" value={form.wholesale_price}
+                      onChange={e => setField('wholesale_price')(e.target.value)}
+                      placeholder="mis. 8500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-0.5">Min. Qty Grosir</label>
+                    <input type="number" min="1" step="1" value={form.wholesale_min_qty}
+                      onChange={e => setField('wholesale_min_qty')(e.target.value)}
+                      placeholder="mis. 12 (lusin)"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                  </div>
+                </div>
+                {form.wholesale_price > 0 && form.price > 0 && (
+                  <p className="text-xs text-blue-600">
+                    Selisih eceran–grosir: {formatRupiah(parseFloat(form.price) - parseFloat(form.wholesale_price))} per {form.unit || 'pcs'}
+                  </p>
+                )}
+              </div>
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Barcode</label>
-                <input type="text" value={form.barcode} onChange={e => setField('barcode')(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Satuan Tambahan
+                  <span className="ml-1 text-xs font-normal text-gray-400">(opsional — untuk jual per lusin, karton, dll)</span>
+                </label>
+                <UnitManager baseUnit={form.unit} units={units} onChange={setUnits} />
               </div>
 
               <div className="flex gap-3 pt-2">
@@ -266,7 +401,7 @@ export default function Products() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                {['Nama', 'HPP', 'Harga Jual', 'Margin', 'Stok', 'Kategori', 'Aksi'].map(h => (
+                {['Nama', 'HPP', 'Harga Jual', 'Margin', 'Stok', 'Satuan', 'Kategori', 'Aksi'].map(h => (
                   <th key={h} className="text-left px-4 py-3 font-semibold text-gray-600">{h}</th>
                 ))}
               </tr>
@@ -279,6 +414,7 @@ export default function Products() {
                   <td className="px-4 py-3 font-medium">{formatRupiah(p.price)}</td>
                   <td className="px-4 py-3"><MarginBadge price={p.price} costPrice={p.cost_price} /></td>
                   <td className="px-4 py-3"><StockBadge stock={p.stock} minStock={p.min_stock ?? 5} /></td>
+                  <td className="px-4 py-3 text-gray-500 text-xs">{p.unit || 'pcs'}</td>
                   <td className="px-4 py-3">
                     {p.category ? <span className="px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-700">{p.category}</span> : <span className="text-gray-400">—</span>}
                   </td>
@@ -291,7 +427,7 @@ export default function Products() {
                 </tr>
               ))}
               {products.length === 0 && (
-                <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">Belum ada produk.</td></tr>
+                <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-400">Belum ada produk.</td></tr>
               )}
             </tbody>
           </table>

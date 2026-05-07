@@ -24,6 +24,7 @@ import Shifts from './pages/Shifts'
 import ActivityLog from './pages/ActivityLog'
 import CashierReport from './pages/CashierReport'
 import ProductLabels from './pages/ProductLabels'
+import CashFlow from './pages/CashFlow'
 
 const OWNER_GROUPS = [
   {
@@ -55,6 +56,7 @@ const OWNER_GROUPS = [
       { to: '/hutang',          label: 'Hutang' },
       { to: '/piutang',         label: 'Piutang' },
       { to: '/expenses',        label: 'Pengeluaran' },
+      { to: '/cash-flow',       label: 'Arus Kas' },
       { to: '/tutup-kas',       label: 'Tutup Kas' },
     ],
   },
@@ -285,6 +287,7 @@ function AppShell() {
             <Route path="/sales"           element={<Sales />} />
             <Route path="/piutang"         element={<Piutang />} />
             <Route path="/expenses"        element={<Expenses />} />
+            <Route path="/cash-flow"       element={<CashFlow />} />
             <Route path="/returns"         element={<Returns />} />
             <Route path="/tutup-kas"       element={<TutupKas />} />
             <Route path="/customers"     element={<Customers />} />

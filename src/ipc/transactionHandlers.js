@@ -12,3 +12,7 @@ ipcMain.handle('transactions:getAll', (_, filters) => {
 ipcMain.handle('transactions:getById', (_, id) => {
   return transactionRepository.findById(id)
 })
+
+ipcMain.handle('transactions:void', (_, txId, pin) => {
+  return transactionRepository.voidTransaction(txId, pin)
+})

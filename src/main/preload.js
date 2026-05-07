@@ -25,6 +25,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateUser: (id, data) => ipcRenderer.invoke('users:update', id, data),
   deleteUser: (id) => ipcRenderer.invoke('users:delete', id),
 
+  // Product Units (Satuan)
+  getProductUnits: (productId) => ipcRenderer.invoke('productUnits:getByProduct', productId),
+  getAllProductUnits: () => ipcRenderer.invoke('productUnits:getAllGrouped'),
+  saveProductUnits: (productId, units) => ipcRenderer.invoke('productUnits:saveAll', productId, units),
+
   // Categories
   getCategories: () => ipcRenderer.invoke('categories:getAll'),
   createCategory: (name) => ipcRenderer.invoke('categories:create', name),
@@ -135,6 +140,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getStockOpnames: () => ipcRenderer.invoke('stockOpname:getAll'),
   getStockOpnameById: (id) => ipcRenderer.invoke('stockOpname:getById', id),
   createStockOpname: (data) => ipcRenderer.invoke('stockOpname:create', data),
+
+  // Cash Flow
+  getCashFlowReport: (filters) => ipcRenderer.invoke('reports:cashFlow', filters),
+
+  // Void
+  voidTransaction: (txId, pin) => ipcRenderer.invoke('transactions:void', txId, pin),
 
   // Promos
   getPromos: () => ipcRenderer.invoke('promos:getAll'),

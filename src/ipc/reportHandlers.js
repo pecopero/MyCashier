@@ -21,6 +21,7 @@ ipcMain.handle('reports:sales', (_, { startDate, endDate }) => {
     FROM transactions t
     LEFT JOIN transaction_items ti ON ti.transaction_id = t.id
     WHERE date(t.created_at, 'localtime') BETWEEN ? AND ?
+      AND (t.is_void = 0 OR t.is_void IS NULL)
   `).get(startDate, endDate)
 
   const topProducts = db.prepare(`
@@ -31,6 +32,7 @@ ipcMain.handle('reports:sales', (_, { startDate, endDate }) => {
     FROM transaction_items ti
     JOIN transactions t ON t.id = ti.transaction_id
     WHERE date(t.created_at, 'localtime') BETWEEN ? AND ?
+      AND (t.is_void = 0 OR t.is_void IS NULL)
     GROUP BY ti.product_name
     ORDER BY total_qty DESC
     LIMIT 10
@@ -50,6 +52,7 @@ ipcMain.handle('reports:profitLoss', (_, { startDate, endDate }) => {
     FROM transactions t
     LEFT JOIN transaction_items ti ON ti.transaction_id = t.id
     WHERE date(t.created_at, 'localtime') BETWEEN ? AND ?
+      AND (t.is_void = 0 OR t.is_void IS NULL)
   `).get(startDate, endDate)
 
   const expenseRows = expenseRepository.findAll({ startDate, endDate })

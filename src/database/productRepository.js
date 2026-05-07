@@ -17,21 +17,22 @@ const productRepository = {
     return getDb().prepare('SELECT * FROM products WHERE stock <= min_stock ORDER BY stock ASC').all()
   },
 
-  create({ name, price, cost_price = 0, stock = 0, min_stock = 5, category = 'Umum', barcode = null }) {
+  create({ name, price, cost_price = 0, stock = 0, min_stock = 5, unit = 'pcs', category = 'Umum', barcode = null, wholesale_price = 0, wholesale_min_qty = 0 }) {
     const result = getDb().prepare(`
-      INSERT INTO products (name, price, cost_price, stock, min_stock, category, barcode)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(name, price, cost_price, stock, min_stock, category, barcode || null)
+      INSERT INTO products (name, price, cost_price, stock, min_stock, unit, category, barcode, wholesale_price, wholesale_min_qty)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(name, price, cost_price, stock, min_stock, unit || 'pcs', category, barcode || null, wholesale_price || 0, wholesale_min_qty || 0)
     return this.findById(result.lastInsertRowid)
   },
 
-  update(id, { name, price, cost_price = 0, stock, min_stock = 5, category, barcode }) {
+  update(id, { name, price, cost_price = 0, stock, min_stock = 5, unit = 'pcs', category, barcode, wholesale_price = 0, wholesale_min_qty = 0 }) {
     getDb().prepare(`
       UPDATE products
       SET name = ?, price = ?, cost_price = ?, stock = ?, min_stock = ?,
-          category = ?, barcode = ?, updated_at = CURRENT_TIMESTAMP
+          unit = ?, category = ?, barcode = ?, wholesale_price = ?, wholesale_min_qty = ?,
+          updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `).run(name, price, cost_price, stock, min_stock, category, barcode || null, id)
+    `).run(name, price, cost_price, stock, min_stock, unit || 'pcs', category, barcode || null, wholesale_price || 0, wholesale_min_qty || 0, id)
     return this.findById(id)
   },
 
@@ -41,9 +42,9 @@ const productRepository = {
 
   decrementStock(id, quantity) {
     return getDb().prepare(`
-      UPDATE products SET stock = stock - ?, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ? AND stock >= ?
-    `).run(quantity, id, quantity)
+      UPDATE products SET stock = ROUND(stock - ?, 6), updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(quantity, id)
   },
 
   incrementStock(id, quantity, newCostPrice = null) {

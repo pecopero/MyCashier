@@ -49,12 +49,23 @@ function initSchema() {
       name TEXT NOT NULL,
       price REAL NOT NULL DEFAULT 0,
       cost_price REAL NOT NULL DEFAULT 0,
-      stock INTEGER NOT NULL DEFAULT 0,
-      min_stock INTEGER NOT NULL DEFAULT 5,
+      stock REAL NOT NULL DEFAULT 0,
+      min_stock REAL NOT NULL DEFAULT 5,
+      unit TEXT NOT NULL DEFAULT 'pcs',
       category TEXT DEFAULT 'Umum',
       barcode TEXT UNIQUE,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS product_units (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      product_id INTEGER NOT NULL,
+      unit_name TEXT NOT NULL,
+      conversion REAL NOT NULL DEFAULT 1,
+      price REAL NOT NULL DEFAULT 0,
+      is_default INTEGER NOT NULL DEFAULT 0,
+      FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
     );
 
     CREATE TABLE IF NOT EXISTS suppliers (
@@ -293,6 +304,12 @@ function migrate() {
     `ALTER TABLE transactions ADD COLUMN user_name TEXT`,
     `ALTER TABLE transaction_items ADD COLUMN item_discount REAL NOT NULL DEFAULT 0`,
     `ALTER TABLE transaction_items ADD COLUMN item_discount_type TEXT NOT NULL DEFAULT 'nominal'`,
+    `ALTER TABLE transaction_items ADD COLUMN unit_name TEXT NOT NULL DEFAULT ''`,
+    `ALTER TABLE transaction_items ADD COLUMN conversion REAL NOT NULL DEFAULT 1`,
+    `ALTER TABLE products ADD COLUMN unit TEXT NOT NULL DEFAULT 'pcs'`,
+    `ALTER TABLE products ADD COLUMN wholesale_price REAL NOT NULL DEFAULT 0`,
+    `ALTER TABLE products ADD COLUMN wholesale_min_qty REAL NOT NULL DEFAULT 0`,
+    `ALTER TABLE transactions ADD COLUMN is_void INTEGER NOT NULL DEFAULT 0`,
   ]
   for (const sql of migrations) {
     try { db.exec(sql) } catch { /* kolom sudah ada, skip */ }

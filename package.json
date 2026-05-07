@@ -51,10 +51,13 @@
       ]
     },
     "nsis": {
+      "guid": "A3F7B2C1-4D8E-4A9F-B6C0-1E5D7A2F9380",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
       "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
+      "createStartMenuShortcut": true,
+      "deleteAppDataOnUninstall": false
     }
   },
   "keywords": [

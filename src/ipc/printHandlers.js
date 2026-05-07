@@ -35,12 +35,13 @@ function buildReceiptHTML(tx, settings) {
     const discRow = hasItemDisc
       ? `<tr><td class="qty" colspan="2">  Diskon${item.item_discount_type === 'percent' ? ` ${item.item_discount}%` : ''}</td><td class="amount">- ${fmt(itemDiscAmt)}</td></tr>`
       : ''
+    const unitLabel = item.unit_name ? ` ${item.unit_name}` : ''
     return `
     <tr>
       <td colspan="3" class="product">${item.product_name}</td>
     </tr>
     <tr>
-      <td class="qty">${item.quantity} x ${fmt(item.price)}</td>
+      <td class="qty">${item.quantity}${unitLabel} x ${fmt(item.price)}</td>
       <td></td>
       <td class="amount">${fmt(item.price * item.quantity)}</td>
     </tr>

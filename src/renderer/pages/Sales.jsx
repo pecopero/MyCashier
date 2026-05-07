@@ -5,9 +5,51 @@ import ReceiptPreviewModal from '../components/ReceiptPreviewModal'
 
 function today() { return new Date().toLocaleDateString('en-CA') }
 
-function TransactionDetail({ txId, onClose }) {
+function VoidConfirmModal({ txId, onSuccess, onClose }) {
+  const [pin, setPin] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleVoid = async () => {
+    if (!pin.trim()) return setError('Masukkan PIN owner')
+    setLoading(true)
+    setError('')
+    try {
+      await window.electronAPI.voidTransaction(txId, pin)
+      onSuccess()
+    } catch (e) {
+      setError(e.message || 'Gagal void transaksi')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60]">
+      <div className="bg-white rounded-xl shadow-xl p-6 w-80">
+        <h3 className="font-bold text-gray-800 mb-1">Batalkan Transaksi (Void)</h3>
+        <p className="text-sm text-gray-500 mb-4">Stok akan dikembalikan. Masukkan PIN owner untuk konfirmasi.</p>
+        <input type="password" placeholder="PIN Owner" value={pin} onChange={e => setPin(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && handleVoid()}
+          autoFocus
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-red-400" />
+        {error && <p className="text-xs text-red-600 mb-3">{error}</p>}
+        <div className="flex gap-2">
+          <button onClick={onClose} className="flex-1 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm">Batal</button>
+          <button onClick={handleVoid} disabled={loading}
+            className="flex-1 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50">
+            {loading ? 'Memproses...' : 'Void'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function TransactionDetail({ txId, onClose, onVoided }) {
   const [tx, setTx] = useState(null)
   const [showPreview, setShowPreview] = useState(false)
+  const [showVoid, setShowVoid] = useState(false)
 
   useEffect(() => {
     window.electronAPI.getTransactionById(txId).then(setTx)
@@ -18,7 +60,12 @@ function TransactionDetail({ txId, onClose }) {
       <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
         <div className="flex justify-between items-start px-6 py-4 border-b border-gray-200">
           <div>
-            <h2 className="font-bold text-gray-800 text-lg">Detail Transaksi</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="font-bold text-gray-800 text-lg">Detail Transaksi</h2>
+              {tx?.is_void === 1 && (
+                <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-bold rounded">VOID</span>
+              )}
+            </div>
             {tx && <p className="text-xs text-gray-400 mt-0.5">{formatDate(tx.created_at)}</p>}
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none mt-0.5">×</button>
@@ -89,8 +136,21 @@ function TransactionDetail({ txId, onClose }) {
                 >
                   🖨 Print
                 </button>
+                {tx.is_void !== 1 && (
+                  <button
+                    onClick={() => setShowVoid(true)}
+                    className="flex-1 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 text-sm font-medium"
+                  >
+                    Void
+                  </button>
+                )}
               </div>
               {showPreview && <ReceiptPreviewModal tx={tx} onClose={() => setShowPreview(false)} />}
+              {showVoid && (
+                <VoidConfirmModal txId={tx.id}
+                  onClose={() => setShowVoid(false)}
+                  onSuccess={() => { setShowVoid(false); onVoided(); onClose() }} />
+              )}
             </div>
           </>
         )}
@@ -214,8 +274,11 @@ export default function Sales() {
             <tbody>
               {transactions.map((t, i) => (
                 <tr key={t.id} onClick={() => setSelectedTxId(t.id)}
-                  className="border-t border-gray-100 hover:bg-blue-50 cursor-pointer transition-colors">
-                  <td className="px-4 py-3 text-gray-400 text-xs">{transactions.length - i}</td>
+                  className={`border-t border-gray-100 hover:bg-blue-50 cursor-pointer transition-colors ${t.is_void ? 'opacity-50 bg-red-50' : ''}`}>
+                  <td className="px-4 py-3 text-gray-400 text-xs">
+                    {transactions.length - i}
+                    {t.is_void === 1 && <span className="ml-1 px-1 py-0.5 bg-red-100 text-red-600 text-[10px] font-bold rounded">VOID</span>}
+                  </td>
                   <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">{formatDate(t.created_at)}</td>
                   <td className="px-4 py-3">{formatRupiah(t.subtotal || t.total)}</td>
                   <td className="px-4 py-3 text-orange-600">{t.discount > 0 ? `− ${formatRupiah(t.discount)}` : '—'}</td>
@@ -237,7 +300,7 @@ export default function Sales() {
       </div>
 
       {selectedTxId && (
-        <TransactionDetail txId={selectedTxId} onClose={() => setSelectedTxId(null)} />
+        <TransactionDetail txId={selectedTxId} onClose={() => setSelectedTxId(null)} onVoided={load} />
       )}
     </div>
   )
