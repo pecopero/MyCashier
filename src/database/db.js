@@ -157,6 +157,15 @@ function initSchema() {
 
     INSERT OR IGNORE INTO users (id, name, pin, role) VALUES (1, 'Owner', '123456', 'owner');
 
+    CREATE TABLE IF NOT EXISTS customers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      phone TEXT,
+      address TEXT,
+      notes TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
     CREATE TABLE IF NOT EXISTS stock_opnames (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       date TEXT NOT NULL,

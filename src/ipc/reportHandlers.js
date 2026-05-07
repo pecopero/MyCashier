@@ -135,3 +135,50 @@ ipcMain.handle('reports:lowStock', () => {
     SELECT * FROM products WHERE stock <= min_stock ORDER BY stock ASC
   `).all()
 })
+
+ipcMain.handle('reports:purchases', (_, { startDate, endDate, supplierId } = {}) => {
+  const db = getDb()
+  const params = [startDate, endDate]
+  let supplierClause = ''
+  if (supplierId) { supplierClause = 'AND p.supplier_id = ?'; params.push(supplierId) }
+
+  const purchases = db.prepare(`
+    SELECT p.* FROM purchases p
+    WHERE date(p.created_at, 'localtime') BETWEEN ? AND ?
+    ${supplierClause}
+    ORDER BY p.created_at DESC
+  `).all(...params)
+
+  const summary = db.prepare(`
+    SELECT
+      COUNT(p.id)                                    AS total_purchases,
+      COALESCE(SUM(p.total), 0)                      AS total_amount,
+      COALESCE(SUM(p.paid_amount), 0)                AS total_paid,
+      COALESCE(SUM(p.total - p.paid_amount), 0)      AS total_remaining
+    FROM purchases p
+    WHERE date(p.created_at, 'localtime') BETWEEN ? AND ?
+    ${supplierClause}
+  `).get(...params)
+
+  const bySupplier = db.prepare(`
+    SELECT
+      COALESCE(p.supplier_name, 'Tanpa Supplier') AS supplier,
+      COUNT(p.id)                                  AS count,
+      COALESCE(SUM(p.total), 0)                    AS total
+    FROM purchases p
+    WHERE date(p.created_at, 'localtime') BETWEEN ? AND ?
+    ${supplierClause}
+    GROUP BY supplier ORDER BY total DESC
+  `).all(...params)
+
+  return { purchases, summary, bySupplier }
+})
+
+ipcMain.handle('reports:stockValue', () => {
+  return getDb().prepare(`
+    SELECT id, name, category, stock, min_stock, price, cost_price,
+           stock * cost_price AS stock_value
+    FROM products
+    ORDER BY name ASC
+  `).all()
+})

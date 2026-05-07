@@ -55,6 +55,8 @@ export default function Kasir() {
   const [customerName, setCustomerName] = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
   const [creditDueDate, setCreditDueDate] = useState('')
+  const [customerSuggestions, setCustomerSuggestions] = useState([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
 
   // Barcode scanner state
   const barcodeBuffer = useRef('')
@@ -297,9 +299,38 @@ export default function Kasir() {
           {/* Info piutang */}
           {isCredit && (
             <div className="space-y-1.5 bg-orange-50 rounded-lg p-3">
-              <input type="text" placeholder="Nama pelanggan *" value={customerName}
-                onChange={e => setCustomerName(e.target.value)}
-                className="w-full px-3 py-1.5 border border-orange-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-400" />
+              {/* Customer autocomplete */}
+              <div className="relative">
+                <input type="text" placeholder="Nama pelanggan *" value={customerName}
+                  onChange={async e => {
+                    setCustomerName(e.target.value)
+                    if (e.target.value.length >= 1) {
+                      const results = await window.electronAPI.getCustomers(e.target.value)
+                      setCustomerSuggestions(results)
+                      setShowSuggestions(results.length > 0)
+                    } else {
+                      setShowSuggestions(false)
+                    }
+                  }}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                  className="w-full px-3 py-1.5 border border-orange-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-400" />
+                {showSuggestions && (
+                  <div className="absolute left-0 right-0 top-full mt-0.5 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-40 overflow-auto">
+                    {customerSuggestions.map(c => (
+                      <button key={c.id} type="button"
+                        onMouseDown={() => {
+                          setCustomerName(c.name)
+                          setCustomerPhone(c.phone || '')
+                          setShowSuggestions(false)
+                        }}
+                        className="w-full text-left px-3 py-2 hover:bg-orange-50 text-sm border-b border-gray-100 last:border-0">
+                        <span className="font-medium text-gray-800">{c.name}</span>
+                        {c.phone && <span className="text-gray-400 text-xs ml-2">{c.phone}</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               <input type="text" placeholder="No. HP (opsional)" value={customerPhone}
                 onChange={e => setCustomerPhone(e.target.value)}
                 className="w-full px-3 py-1.5 border border-orange-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-400" />

@@ -57,6 +57,8 @@ app.whenReady().then(() => {
   require('../ipc/importHandlers')
   require('../ipc/stockOpnameHandlers')
   require('../ipc/promoHandlers')
+  require('../ipc/customerHandlers')
+  require('../ipc/notificationHandlers')
 
   checkDueNotifications()
 
