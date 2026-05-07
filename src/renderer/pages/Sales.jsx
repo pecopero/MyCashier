@@ -88,7 +88,14 @@ function TransactionDetail({ txId, onClose, onVoided }) {
                 <tbody>
                   {tx.items.map(item => (
                     <tr key={item.id} className="border-b border-gray-50">
-                      <td className="py-2.5 text-gray-800">{item.product_name}</td>
+                      <td className="py-2.5 text-gray-800">
+                        {item.product_name}
+                        {item.unit_name && (
+                          <span className="ml-1.5 px-1.5 py-0.5 bg-gray-100 text-gray-500 text-[11px] rounded font-normal">
+                            {item.unit_name}
+                          </span>
+                        )}
+                      </td>
                       <td className="py-2.5 text-center text-gray-500">{item.quantity}</td>
                       <td className="py-2.5 text-right text-gray-500">{formatRupiah(item.price)}</td>
                       <td className="py-2.5 text-right font-medium">{formatRupiah(item.subtotal)}</td>
