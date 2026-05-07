@@ -64,6 +64,11 @@ export default function PurchaseReport() {
         <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
           Tampilkan
         </button>
+        <button type="button"
+          onClick={() => window.electronAPI.exportPurchases({ startDate, endDate, supplierId: supplierId ? parseInt(supplierId) : null })}
+          className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700">
+          Export Excel
+        </button>
       </form>
 
       {loading && <p className="text-center text-gray-400">Memuat...</p>}

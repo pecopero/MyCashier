@@ -1,6 +1,28 @@
 const { ipcMain, BrowserWindow } = require('electron')
 const settingsRepository = require('../database/settingsRepository')
 
+const METHOD_LABEL = { cash: 'Tunai', transfer: 'Transfer', qris: 'QRIS', credit: 'Piutang' }
+
+function buildPaymentRows(tx, fmt) {
+  const methods = tx.paymentMethods || []
+  const hasSplit = methods.length > 1
+
+  if (hasSplit) {
+    const rows = methods
+      .filter(m => m.amount > 0)
+      .map(m => `<tr><td colspan="2">${METHOD_LABEL[m.method] ?? m.method}</td><td class="amount">${fmt(m.amount)}</td></tr>`)
+      .join('')
+    return `
+      ${rows}
+      <tr><td colspan="2">Kembalian</td><td class="amount">${fmt(tx.change)}</td></tr>`
+  }
+
+  const label = methods[0] ? (METHOD_LABEL[methods[0].method] ?? methods[0].method) : 'Bayar'
+  return `
+    <tr><td colspan="2">${label}</td><td class="amount">${fmt(tx.payment)}</td></tr>
+    <tr><td colspan="2">Kembalian</td><td class="amount">${fmt(tx.change)}</td></tr>`
+}
+
 function buildReceiptHTML(tx, settings) {
   const fmt = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(n)
   const date = new Date(tx.created_at).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' })
@@ -75,14 +97,7 @@ function buildReceiptHTML(tx, settings) {
       <td colspan="2">TOTAL</td>
       <td class="amount">${fmt(tx.total)}</td>
     </tr>
-    <tr>
-      <td colspan="2">Bayar</td>
-      <td class="amount">${fmt(tx.payment)}</td>
-    </tr>
-    <tr>
-      <td colspan="2">Kembalian</td>
-      <td class="amount">${fmt(tx.change)}</td>
-    </tr>
+    ${buildPaymentRows(tx, fmt)}
   </table>
 
   <div class="divider"></div>

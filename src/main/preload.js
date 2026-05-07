@@ -89,6 +89,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   exportSales: (filters) => ipcRenderer.invoke('export:sales', filters),
   exportExpenses: (filters) => ipcRenderer.invoke('export:expenses', filters),
   exportProfitLoss: (filters) => ipcRenderer.invoke('export:profitLoss', filters),
+  exportStock: () => ipcRenderer.invoke('export:stock'),
+  exportPurchases: (filters) => ipcRenderer.invoke('export:purchases', filters),
 
   // Reports
   getSalesReport: (filters) => ipcRenderer.invoke('reports:sales', filters),

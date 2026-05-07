@@ -66,7 +66,7 @@ export default function StockReport() {
       </div>
 
       {/* Filters + Search */}
-      <div className="flex gap-3 mb-4 items-center">
+      <div className="flex gap-3 mb-4 items-center flex-wrap">
         <div className="flex rounded-lg border border-gray-200 overflow-hidden">
           {FILTERS.map(f => (
             <button key={f} onClick={() => setFilter(f)}
@@ -78,6 +78,10 @@ export default function StockReport() {
         <input value={search} onChange={e => setSearch(e.target.value)}
           placeholder="Cari produk atau kategori..."
           className="flex-1 max-w-sm px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        <button onClick={() => window.electronAPI.exportStock()}
+          className="ml-auto px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700">
+          Export Excel
+        </button>
       </div>
 
       {loading ? (
