@@ -37,8 +37,11 @@ function initSchema() {
       ('store_tagline', ''),
       ('store_address', ''),
       ('store_phone',   ''),
-      ('receipt_note',  'Terima kasih atas kunjungan Anda!'),
-      ('tax_percent',   '0');
+      ('receipt_note',        'Terima kasih atas kunjungan Anda!'),
+      ('tax_percent',         '0'),
+      ('auto_backup_enabled', '0'),
+      ('auto_backup_folder',  ''),
+      ('last_auto_backup',    '');
 
     CREATE TABLE IF NOT EXISTS products (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -184,6 +187,30 @@ function initSchema() {
       FOREIGN KEY (opname_id) REFERENCES stock_opnames(id)
     );
 
+    CREATE TABLE IF NOT EXISTS shifts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      user_name TEXT NOT NULL,
+      opened_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      closed_at DATETIME,
+      opening_cash REAL NOT NULL DEFAULT 0,
+      closing_cash REAL,
+      total_sales REAL NOT NULL DEFAULT 0,
+      total_transactions INTEGER NOT NULL DEFAULT 0,
+      note TEXT,
+      status TEXT NOT NULL DEFAULT 'open'
+    );
+
+    CREATE TABLE IF NOT EXISTS activity_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER,
+      user_name TEXT,
+      action TEXT NOT NULL,
+      entity TEXT,
+      details TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
     CREATE TABLE IF NOT EXISTS promos (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
@@ -260,6 +287,9 @@ function migrate() {
     `ALTER TABLE transactions ADD COLUMN payment_type TEXT NOT NULL DEFAULT 'cash'`,
     `ALTER TABLE transactions ADD COLUMN customer_name TEXT`,
     `ALTER TABLE transactions ADD COLUMN customer_phone TEXT`,
+    `ALTER TABLE transactions ADD COLUMN shift_id INTEGER`,
+    `ALTER TABLE transactions ADD COLUMN user_id INTEGER`,
+    `ALTER TABLE transactions ADD COLUMN user_name TEXT`,
   ]
   for (const sql of migrations) {
     try { db.exec(sql) } catch { /* kolom sudah ada, skip */ }

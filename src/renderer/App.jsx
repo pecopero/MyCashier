@@ -20,6 +20,8 @@ import StockOpname from './pages/StockOpname'
 import StockReport from './pages/StockReport'
 import Promos from './pages/Promos'
 import PurchaseReport from './pages/PurchaseReport'
+import Shifts from './pages/Shifts'
+import ActivityLog from './pages/ActivityLog'
 
 const OWNER_GROUPS = [
   {
@@ -56,10 +58,12 @@ const OWNER_GROUPS = [
   {
     title: 'MANAJEMEN',
     items: [
-      { to: '/customers', label: 'Pelanggan' },
-      { to: '/suppliers', label: 'Supplier' },
-      { to: '/reports',   label: 'Laporan' },
-      { to: '/settings',  label: 'Pengaturan' },
+      { to: '/customers',     label: 'Pelanggan' },
+      { to: '/suppliers',     label: 'Supplier' },
+      { to: '/shifts',        label: 'Riwayat Shift' },
+      { to: '/activity-log',  label: 'Log Aktivitas' },
+      { to: '/reports',       label: 'Laporan' },
+      { to: '/settings',      label: 'Pengaturan' },
     ],
   },
 ]
@@ -219,10 +223,12 @@ function AppShell() {
             <Route path="/expenses"        element={<Expenses />} />
             <Route path="/returns"         element={<Returns />} />
             <Route path="/tutup-kas"       element={<TutupKas />} />
-            <Route path="/customers"       element={<Customers />} />
-            <Route path="/suppliers"       element={<Suppliers />} />
-            <Route path="/reports"         element={<Reports />} />
-            <Route path="/settings"        element={<Settings />} />
+            <Route path="/customers"     element={<Customers />} />
+            <Route path="/suppliers"     element={<Suppliers />} />
+            <Route path="/shifts"        element={<Shifts />} />
+            <Route path="/activity-log"  element={<ActivityLog />} />
+            <Route path="/reports"       element={<Reports />} />
+            <Route path="/settings"      element={<Settings />} />
           </>}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

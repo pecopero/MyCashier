@@ -21,6 +21,15 @@ ipcMain.handle('backup:save', async () => {
   return { success: true, filePath }
 })
 
+ipcMain.handle('backup:pickFolder', async () => {
+  const { filePaths, canceled } = await dialog.showOpenDialog({
+    title: 'Pilih Folder Auto-Backup',
+    properties: ['openDirectory'],
+  })
+  if (canceled || !filePaths.length) return { success: false }
+  return { success: true, folder: filePaths[0] }
+})
+
 ipcMain.handle('backup:restore', async () => {
   const dbPath = path.join(app.getPath('userData'), 'kasir.db')
   const { filePaths, canceled } = await dialog.showOpenDialog({

@@ -179,6 +179,8 @@ export default function Settings() {
   const [saved, setSaved] = useState(false)
   const [backupMsg, setBackupMsg] = useState('')
   const [previewHtml, setPreviewHtml] = useState(null)
+  const [autoBackup, setAutoBackup] = useState({ enabled: false, folder: '' })
+  const [autoBackupMsg, setAutoBackupMsg] = useState('')
 
   useEffect(() => {
     window.electronAPI.getSettings().then(s => {
@@ -190,6 +192,10 @@ export default function Settings() {
         receipt_note:  s.receipt_note  ?? '',
         tax_percent:   s.tax_percent   ?? '0',
       })
+      setAutoBackup({
+        enabled: s.auto_backup_enabled === '1' || s.auto_backup_enabled === 1,
+        folder:  s.auto_backup_folder ?? '',
+      })
     })
   }, [])
 
@@ -200,9 +206,30 @@ export default function Settings() {
 
   const handleSave = async (e) => {
     e.preventDefault()
-    await window.electronAPI.saveSettings(form)
+    await window.electronAPI.saveSettings({
+      ...form,
+      auto_backup_enabled: autoBackup.enabled ? '1' : '0',
+      auto_backup_folder:  autoBackup.folder,
+    })
     setSaved(true)
     setTimeout(() => setSaved(false), 2500)
+  }
+
+  const handlePickFolder = async () => {
+    const folder = await window.electronAPI.pickBackupFolder()
+    if (folder) setAutoBackup(a => ({ ...a, folder }))
+  }
+
+  const handleAutoBackupNow = async () => {
+    if (!autoBackup.folder) return setAutoBackupMsg('Pilih folder dulu.')
+    await window.electronAPI.saveSettings({
+      ...form,
+      auto_backup_enabled: autoBackup.enabled ? '1' : '0',
+      auto_backup_folder:  autoBackup.folder,
+    })
+    const result = await window.electronAPI.backupDatabase()
+    setAutoBackupMsg(result.success ? 'Backup otomatis berhasil disimpan.' : 'Backup dibatalkan.')
+    setTimeout(() => setAutoBackupMsg(''), 3000)
   }
 
   const handleBackup = async () => {
@@ -281,6 +308,38 @@ export default function Settings() {
       <div className="mt-8">
         <Section title="Manajemen Pengguna">
           <UserManager />
+        </Section>
+      </div>
+
+      {/* Auto Backup */}
+      <div className="mt-8">
+        <Section title="Backup Otomatis">
+          <Field label="Aktifkan" hint="Backup otomatis dijalankan setiap kali aplikasi dibuka (1x per hari)">
+            <button type="button"
+              onClick={() => setAutoBackup(a => ({ ...a, enabled: !a.enabled }))}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${autoBackup.enabled ? 'bg-blue-600' : 'bg-gray-300'}`}>
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${autoBackup.enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+            </button>
+          </Field>
+          <Field label="Folder Tujuan" hint="Folder tempat file backup disimpan otomatis">
+            <div className="flex items-center gap-2">
+              <input readOnly value={autoBackup.folder || 'Belum dipilih'}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-gray-50 text-gray-500 truncate" />
+              <button type="button" onClick={handlePickFolder}
+                className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200 border border-gray-200 whitespace-nowrap">
+                Pilih Folder…
+              </button>
+            </div>
+          </Field>
+          <Field label="">
+            <div className="flex items-center gap-3">
+              <button type="button" onClick={handleAutoBackupNow}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
+                Backup ke Folder Ini Sekarang
+              </button>
+              {autoBackupMsg && <span className="text-sm text-gray-600">{autoBackupMsg}</span>}
+            </div>
+          </Field>
         </Section>
       </div>
 

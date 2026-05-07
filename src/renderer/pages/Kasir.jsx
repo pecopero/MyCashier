@@ -1,8 +1,9 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { useProducts } from '../hooks/useProducts'
 import { useCategories } from '../hooks/useCategories'
 import { formatRupiah } from '../utils/format'
 import ReceiptPreviewModal from '../components/ReceiptPreviewModal'
+import { useAuth } from '../context/AuthContext'
 
 const PAYMENT_METHODS = [
   { key: 'cash',     label: 'Tunai' },
@@ -33,9 +34,93 @@ function CartItem({ item, onQtyChange, onRemove }) {
   )
 }
 
+function ShiftBanner({ shift, onOpen, onClose }) {
+  const [showClose, setShowClose] = useState(false)
+  const [closingCash, setClosingCash] = useState('')
+  const [note, setNote] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  if (!shift) return (
+    <div className="bg-blue-50 border-b border-blue-200 px-4 py-2 flex items-center justify-between">
+      <p className="text-sm text-blue-700">Belum ada shift aktif.</p>
+      <button onClick={onOpen} className="px-3 py-1 bg-blue-600 text-white text-xs rounded-lg font-medium hover:bg-blue-700">
+        Buka Shift
+      </button>
+    </div>
+  )
+
+  return (
+    <div className="bg-green-50 border-b border-green-200 px-4 py-2 flex items-center justify-between">
+      <p className="text-sm text-green-700 font-medium">
+        Shift #{shift.id} aktif · {shift.user_name}
+      </p>
+      {showClose ? (
+        <div className="flex items-center gap-2">
+          <input type="number" placeholder="Kas akhir (Rp)" value={closingCash}
+            onChange={e => setClosingCash(e.target.value)}
+            className="w-36 px-2 py-1 border border-green-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
+          <input placeholder="Catatan" value={note} onChange={e => setNote(e.target.value)}
+            className="w-32 px-2 py-1 border border-green-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
+          <button onClick={async () => {
+            setLoading(true)
+            await onClose(shift.id, { closingCash: parseFloat(closingCash) || 0, note })
+            setShowClose(false); setLoading(false)
+          }} disabled={loading} className="px-3 py-1 bg-green-600 text-white text-xs rounded font-medium hover:bg-green-700 disabled:opacity-50">
+            {loading ? 'Menutup...' : 'Konfirmasi'}
+          </button>
+          <button onClick={() => setShowClose(false)} className="text-xs text-gray-500 hover:text-gray-700">Batal</button>
+        </div>
+      ) : (
+        <button onClick={() => setShowClose(true)} className="px-3 py-1 border border-green-400 text-green-700 text-xs rounded-lg font-medium hover:bg-green-100">
+          Tutup Shift
+        </button>
+      )}
+    </div>
+  )
+}
+
+function OpenShiftModal({ user, onOpen, onCancel }) {
+  const [openingCash, setOpeningCash] = useState('')
+  const [loading, setLoading] = useState(false)
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+      <div className="bg-white rounded-xl shadow-xl p-6 w-80">
+        <h3 className="font-bold text-gray-800 mb-4">Buka Shift Baru</h3>
+        <p className="text-sm text-gray-500 mb-4">Kasir: <strong>{user?.name}</strong></p>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Kas Awal (Rp)</label>
+        <input type="number" value={openingCash} onChange={e => setOpeningCash(e.target.value)}
+          placeholder="0" autoFocus
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        <div className="flex gap-2">
+          <button onClick={onCancel} className="flex-1 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm">Nanti</button>
+          <button onClick={async () => {
+            setLoading(true)
+            await onOpen(parseFloat(openingCash) || 0)
+            setLoading(false)
+          }} disabled={loading} className="flex-1 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+            {loading ? 'Membuka...' : 'Buka Shift'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function Kasir() {
+  const { currentUser } = useAuth()
   const { products, loading, reload: reloadProducts } = useProducts()
   const { categories } = useCategories()
+  const [activeShift, setActiveShift] = useState(null)
+  const [showOpenShift, setShowOpenShift] = useState(false)
+
+  useEffect(() => {
+    if (currentUser) {
+      window.electronAPI.getActiveShift(currentUser.id).then(shift => {
+        setActiveShift(shift || null)
+        if (!shift) setShowOpenShift(true)
+      })
+    }
+  }, [currentUser?.id])
   const [cart, setCart] = useState([])
   const [search, setSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState('Semua')
@@ -138,6 +223,9 @@ export default function Kasir() {
       customerName: isCredit ? customerName.trim() : '',
       customerPhone: isCredit ? customerPhone.trim() : '',
       paymentMethods: isCredit ? [] : paymentMethods,
+      shiftId: activeShift?.id || null,
+      userId: currentUser?.id || null,
+      userName: currentUser?.name || '',
     })
 
     if (isCredit) {
@@ -202,7 +290,27 @@ export default function Kasir() {
   }
 
   return (
-    <div className="flex h-full gap-0">
+    <div className="flex flex-col h-full">
+      <ShiftBanner shift={activeShift}
+        onOpen={() => setShowOpenShift(true)}
+        onClose={async (id, data) => {
+          const closed = await window.electronAPI.closeShift(id, data)
+          setActiveShift(null)
+        }} />
+
+      {showOpenShift && (
+        <OpenShiftModal user={currentUser}
+          onCancel={() => setShowOpenShift(false)}
+          onOpen={async (openingCash) => {
+            const shift = await window.electronAPI.openShift({
+              userId: currentUser.id, userName: currentUser.name, openingCash
+            })
+            setActiveShift(shift)
+            setShowOpenShift(false)
+          }} />
+      )}
+
+    <div className="flex flex-1 gap-0 min-h-0">
       {/* Product Grid */}
       <div className="flex-1 p-4 overflow-auto">
         <input ref={searchRef} type="text" placeholder="Cari produk / scan barcode → Enter"
@@ -406,6 +514,7 @@ export default function Kasir() {
           </button>
         </div>
       </div>
+    </div>
     </div>
   )
 }

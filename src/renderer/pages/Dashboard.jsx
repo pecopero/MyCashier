@@ -93,8 +93,17 @@ export default function Dashboard() {
     <div className="flex items-center justify-center h-full text-gray-400">Memuat dashboard...</div>
   )
 
-  const { today, chart, lowStock, recentTx } = data
+  const { today, yesterday, chart, hourly, top5, lowStock, recentTx } = data
   const alertCount = dueSoon.hutang.length + dueSoon.piutang.length
+
+  const pct = (curr, prev) => {
+    if (!prev) return null
+    const diff = ((curr - prev) / prev) * 100
+    return { diff: Math.abs(diff).toFixed(0), up: diff >= 0 }
+  }
+  const revPct = pct(today.revenue, yesterday?.revenue)
+  const txPct  = pct(today.transactions, yesterday?.transactions)
+  const prfPct = pct(today.profit, yesterday?.profit)
 
   return (
     <div className="p-6 space-y-6">
@@ -146,13 +155,14 @@ export default function Dashboard() {
         <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Hari Ini</p>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard label="Transaksi" value={today.transactions} color="blue"
-            sub="transaksi selesai" onClick={() => navigate('/reports')} />
+            sub={txPct ? `${txPct.up ? '↑' : '↓'} ${txPct.diff}% vs kemarin` : 'transaksi selesai'}
+            onClick={() => navigate('/reports')} />
           <StatCard label="Omzet" value={formatRupiah(today.revenue)} color="blue"
-            sub={today.discount > 0 ? `Diskon: ${formatRupiah(today.discount)}` : 'total penjualan'} />
+            sub={revPct ? `${revPct.up ? '↑' : '↓'} ${revPct.diff}% vs kemarin` : 'total penjualan'} />
           <StatCard label="Modal (HPP)" value={formatRupiah(today.cost)} color="orange"
             sub="harga pokok terjual" />
           <StatCard label="Laba Kotor" value={formatRupiah(today.profit)} color="green"
-            sub={today.revenue > 0 ? `Margin ${(today.profit / today.revenue * 100).toFixed(1)}%` : 'laba hari ini'} />
+            sub={prfPct ? `${prfPct.up ? '↑' : '↓'} ${prfPct.diff}% vs kemarin` : today.revenue > 0 ? `Margin ${(today.profit / today.revenue * 100).toFixed(1)}%` : 'laba hari ini'} />
         </div>
       </div>
 
@@ -197,6 +207,66 @@ export default function Dashboard() {
                 </li>
               )}
             </ul>
+          )}
+        </div>
+      </div>
+
+      {/* Grafik per jam + Top produk */}
+      <div className="grid grid-cols-2 gap-6">
+        {/* Penjualan per jam hari ini */}
+        <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <h2 className="font-bold text-gray-800 mb-4">Penjualan Per Jam (Hari Ini)</h2>
+          {hourly.length === 0 ? (
+            <p className="text-gray-400 text-sm text-center py-6">Belum ada transaksi hari ini.</p>
+          ) : (
+            <div className="flex items-end gap-1 h-28">
+              {Array.from({ length: 24 }, (_, h) => {
+                const hStr = String(h).padStart(2, '0')
+                const d = hourly.find(r => r.hour === hStr)
+                const maxRev = Math.max(...hourly.map(r => r.revenue), 1)
+                const pct = d ? (d.revenue / maxRev) * 100 : 0
+                return (
+                  <div key={h} className="flex-1 flex flex-col items-center gap-0.5 group relative">
+                    {d && (
+                      <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] rounded px-1.5 py-0.5 whitespace-nowrap opacity-0 group-hover:opacity-100 z-10 pointer-events-none">
+                        {formatRupiah(d.revenue)}
+                      </div>
+                    )}
+                    <div className="w-full flex items-end" style={{ height: '80px' }}>
+                      <div className={`w-full rounded-t transition-all ${d ? 'bg-blue-500 group-hover:bg-blue-600' : 'bg-gray-100'}`}
+                        style={{ height: `${Math.max(pct, d ? 4 : 0)}%` }} />
+                    </div>
+                    {h % 4 === 0 && <span className="text-[9px] text-gray-400">{hStr}</span>}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Top 5 produk 7 hari */}
+        <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <h2 className="font-bold text-gray-800 mb-4">Top Produk (7 Hari)</h2>
+          {top5.length === 0 ? (
+            <p className="text-gray-400 text-sm text-center py-6">Belum ada data.</p>
+          ) : (
+            <div className="space-y-3">
+              {top5.map((p, i) => {
+                const maxQty = top5[0].total_qty
+                return (
+                  <div key={i}>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-gray-700 truncate mr-2">{p.product_name}</span>
+                      <span className="text-gray-500 shrink-0">{p.total_qty} pcs</span>
+                    </div>
+                    <div className="w-full bg-gray-100 rounded-full h-1.5">
+                      <div className="bg-blue-500 h-1.5 rounded-full transition-all"
+                        style={{ width: `${(p.total_qty / maxQty) * 100}%` }} />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           )}
         </div>
       </div>

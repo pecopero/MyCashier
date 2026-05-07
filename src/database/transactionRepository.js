@@ -4,17 +4,18 @@ const productRepository = require('./productRepository')
 const transactionRepository = {
   create({ items, subtotal, discount = 0, discountType = 'nominal', total, payment, change,
            note = '', paymentType = 'cash', customerName = '', customerPhone = '',
-           paymentMethods = [] }) {
+           paymentMethods = [], shiftId = null, userId = null, userName = '' }) {
     const db = getDb()
 
     const insertTransaction = db.transaction(() => {
       const txResult = db.prepare(`
         INSERT INTO transactions
           (subtotal, discount, discount_type, total, payment, change, note,
-           payment_type, customer_name, customer_phone)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           payment_type, customer_name, customer_phone, shift_id, user_id, user_name)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(subtotal, discount, discountType, total, payment, change, note,
-             paymentType, customerName || '', customerPhone || '')
+             paymentType, customerName || '', customerPhone || '',
+             shiftId || null, userId || null, userName || '')
 
       const txId = txResult.lastInsertRowid
 

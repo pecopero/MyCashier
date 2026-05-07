@@ -116,6 +116,37 @@ ipcMain.handle('reports:dashboard', () => {
     SELECT * FROM transactions ORDER BY created_at DESC LIMIT 5
   `).all()
 
+  // Yesterday comparison
+  const yesterdayStr = new Date(Date.now() - 86400000).toLocaleDateString('en-CA')
+  const yesterday = db.prepare(`
+    SELECT COUNT(id) AS transactions, COALESCE(SUM(total),0) AS revenue
+    FROM transactions WHERE date(created_at,'localtime') = ?
+  `).get(yesterdayStr)
+  const yesterdayCost = db.prepare(`
+    SELECT COALESCE(SUM(ti.cost_price*ti.quantity),0) AS cost
+    FROM transaction_items ti JOIN transactions t ON t.id=ti.transaction_id
+    WHERE date(t.created_at,'localtime') = ?
+  `).get(yesterdayStr)
+
+  // Hourly sales today
+  const hourly = db.prepare(`
+    SELECT strftime('%H', created_at, 'localtime') AS hour,
+           COALESCE(SUM(total),0) AS revenue, COUNT(*) AS count
+    FROM transactions
+    WHERE date(created_at,'localtime') = ?
+    GROUP BY hour ORDER BY hour ASC
+  `).all(todayStr)
+
+  // Top 5 products last 7 days
+  const top5 = db.prepare(`
+    SELECT ti.product_name, SUM(ti.quantity) AS total_qty, SUM(ti.subtotal) AS total_rev
+    FROM transaction_items ti
+    JOIN transactions t ON t.id = ti.transaction_id
+    WHERE date(t.created_at,'localtime') >= date(?,' -6 days')
+    GROUP BY ti.product_name
+    ORDER BY total_qty DESC LIMIT 5
+  `).all(todayStr)
+
   return {
     today: {
       transactions: today.transactions,
@@ -124,7 +155,14 @@ ipcMain.handle('reports:dashboard', () => {
       cost: todayCost.cost,
       profit: today.revenue - todayCost.cost,
     },
+    yesterday: {
+      transactions: yesterday.transactions,
+      revenue: yesterday.revenue,
+      profit: yesterday.revenue - yesterdayCost.cost,
+    },
     chart,
+    hourly,
+    top5,
     lowStock,
     recentTx,
   }

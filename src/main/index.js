@@ -1,5 +1,7 @@
 const { app, BrowserWindow, ipcMain, Notification } = require('electron')
 const path = require('path')
+const fs = require('fs')
+const session = require('./session')
 
 const isDev = process.env.NODE_ENV === 'development'
 
@@ -59,8 +61,15 @@ app.whenReady().then(() => {
   require('../ipc/promoHandlers')
   require('../ipc/customerHandlers')
   require('../ipc/notificationHandlers')
+  require('../ipc/shiftHandlers')
+  require('../ipc/activityLogHandlers')
+
+  // Session management
+  ipcMain.handle('session:set', (_, user) => { session.set(user); return { ok: true } })
+  ipcMain.handle('session:clear', () => { session.clear(); return { ok: true } })
 
   checkDueNotifications()
+  runAutoBackup()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -70,6 +79,24 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
+
+function runAutoBackup() {
+  try {
+    const settingsRepository = require('../database/settingsRepository')
+    const settings = settingsRepository.getAll()
+    if (!settings.auto_backup_enabled || settings.auto_backup_enabled === '0') return
+    const folder = settings.auto_backup_folder
+    if (!folder || !fs.existsSync(folder)) return
+
+    const today = new Date().toLocaleDateString('en-CA')
+    if (settings.last_auto_backup === today) return
+
+    const dbPath = path.join(app.getPath('userData'), 'kasir.db')
+    const dest = path.join(folder, `backup-kasir-${today}.db`)
+    fs.copyFileSync(dbPath, dest)
+    settingsRepository.set('last_auto_backup', today)
+  } catch (_) {}
+}
 
 function checkDueNotifications() {
   if (!Notification.isSupported()) return

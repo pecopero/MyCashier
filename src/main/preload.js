@@ -98,6 +98,23 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getDashboardData: () => ipcRenderer.invoke('reports:dashboard'),
   getLowStockReport: () => ipcRenderer.invoke('reports:lowStock'),
 
+  // Session
+  setSession: (user) => ipcRenderer.invoke('session:set', user),
+  clearSession: () => ipcRenderer.invoke('session:clear'),
+
+  // Shifts
+  getActiveShift: (userId) => ipcRenderer.invoke('shifts:getActive', userId),
+  getAllShifts: () => ipcRenderer.invoke('shifts:getAll'),
+  openShift: (data) => ipcRenderer.invoke('shifts:open', data),
+  closeShift: (shiftId, data) => ipcRenderer.invoke('shifts:close', shiftId, data),
+
+  // Activity Log
+  addActivityLog: (entry) => ipcRenderer.invoke('activityLog:add', entry),
+  getActivityLog: (filters) => ipcRenderer.invoke('activityLog:getAll', filters),
+
+  // Auto-backup folder picker
+  pickBackupFolder: () => ipcRenderer.invoke('backup:pickFolder'),
+
   // Customers
   getCustomers: (search) => ipcRenderer.invoke('customers:getAll', search),
   createCustomer: (data) => ipcRenderer.invoke('customers:create', data),
