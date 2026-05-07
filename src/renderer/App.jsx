@@ -1,4 +1,4 @@
-import { Routes, Route, NavLink, Navigate, useNavigate } from 'react-router-dom'
+import { Routes, Route, NavLink, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { useState, useEffect } from 'react'
 import Dashboard from './pages/Dashboard'
@@ -125,10 +125,20 @@ function NotifPanel({ counts, onClose, onNavigate }) {
   )
 }
 
+const navLinkClass = ({ isActive }) =>
+  `flex items-center px-4 py-2 text-sm font-medium transition-colors ${
+    isActive
+      ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600'
+      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+  }`
+
 function Sidebar({ groups, currentUser, onLogout }) {
   const [notifCounts, setNotifCounts] = useState(null)
   const [showNotif, setShowNotif] = useState(false)
+  const [search, setSearch] = useState('')
+  const [openGroups, setOpenGroups] = useState({})
   const navigate = useNavigate()
+  const location = useLocation()
 
   useEffect(() => {
     const fetch = () => window.electronAPI.getNotificationCounts().then(setNotifCounts)
@@ -137,10 +147,27 @@ function Sidebar({ groups, currentUser, onLogout }) {
     return () => clearInterval(interval)
   }, [])
 
-  const handleNavigate = (path) => {
-    navigate(path)
-    setShowNotif(false)
-  }
+  // Auto-open the group that contains the current active route
+  useEffect(() => {
+    const updates = {}
+    groups.forEach((group, gi) => {
+      if (!group.title) return
+      const hasActive = group.items.some(({ to }) =>
+        to === '/' ? location.pathname === '/' : location.pathname.startsWith(to)
+      )
+      if (hasActive) updates[gi] = true
+    })
+    if (Object.keys(updates).length) setOpenGroups(prev => ({ ...prev, ...updates }))
+  }, [location.pathname])
+
+  const toggleGroup = (gi) => setOpenGroups(prev => ({ ...prev, [gi]: !prev[gi] }))
+
+  const handleNavigate = (path) => { navigate(path); setShowNotif(false) }
+
+  const searchLower = search.toLowerCase().trim()
+  const searchResults = searchLower
+    ? groups.flatMap(g => g.items).filter(({ label }) => label.toLowerCase().includes(searchLower))
+    : null
 
   return (
     <aside className="w-48 shrink-0 bg-white border-r border-gray-200 flex flex-col h-screen relative">
@@ -148,28 +175,61 @@ function Sidebar({ groups, currentUser, onLogout }) {
         <h1 className="text-base font-bold text-blue-600">Kasir App</h1>
       </div>
 
+      {/* Search */}
+      <div className="px-3 py-2 border-b border-gray-100">
+        <div className="relative">
+          <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none"
+            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+          </svg>
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Cari menu..."
+            className="w-full pl-7 pr-6 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
+          />
+          {search && (
+            <button onClick={() => setSearch('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm leading-none">
+              ×
+            </button>
+          )}
+        </div>
+      </div>
+
       <nav className="flex-1 overflow-y-auto py-2">
-        {groups.map((group, gi) => (
-          <div key={gi} className={gi > 0 ? 'mt-1' : ''}>
-            {group.title && (
-              <p className="px-4 pt-3 pb-1 text-[10px] font-semibold tracking-wider text-gray-400 uppercase">
-                {group.title}
-              </p>
-            )}
-            {group.items.map(({ to, label }) => (
-              <NavLink key={to} to={to} end={to === '/'}
-                className={({ isActive }) =>
-                  `flex items-center px-4 py-2 text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                  }`
-                }>
-                {label}
-              </NavLink>
-            ))}
-          </div>
-        ))}
+        {searchResults ? (
+          searchResults.length === 0
+            ? <p className="px-4 py-6 text-xs text-gray-400 text-center">Menu tidak ditemukan.</p>
+            : searchResults.map(({ to, label }) => (
+                <NavLink key={to} to={to} end={to === '/'} onClick={() => setSearch('')}
+                  className={navLinkClass}>
+                  {label}
+                </NavLink>
+              ))
+        ) : (
+          groups.map((group, gi) => (
+            <div key={gi} className={gi > 0 ? 'mt-1' : ''}>
+              {group.title ? (
+                <button onClick={() => toggleGroup(gi)}
+                  className="w-full flex items-center justify-between px-4 pt-3 pb-1 group">
+                  <span className="text-[10px] font-semibold tracking-wider text-gray-400 uppercase group-hover:text-gray-600 transition-colors">
+                    {group.title}
+                  </span>
+                  <svg className={`w-3 h-3 text-gray-400 transition-transform ${openGroups[gi] ? 'rotate-180' : ''}`}
+                    fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+              ) : null}
+              {(!group.title || openGroups[gi]) && group.items.map(({ to, label }) => (
+                <NavLink key={to} to={to} end={to === '/'} className={navLinkClass}>
+                  {label}
+                </NavLink>
+              ))}
+            </div>
+          ))
+        )}
       </nav>
 
       {showNotif && (
