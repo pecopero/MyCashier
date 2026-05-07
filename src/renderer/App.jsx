@@ -22,6 +22,8 @@ import Promos from './pages/Promos'
 import PurchaseReport from './pages/PurchaseReport'
 import Shifts from './pages/Shifts'
 import ActivityLog from './pages/ActivityLog'
+import CashierReport from './pages/CashierReport'
+import ProductLabels from './pages/ProductLabels'
 
 const OWNER_GROUPS = [
   {
@@ -38,10 +40,11 @@ const OWNER_GROUPS = [
   {
     title: 'INVENTORI',
     items: [
-      { to: '/products',      label: 'Produk' },
-      { to: '/promos',        label: 'Promo' },
-      { to: '/stock-opname',  label: 'Stock Opname' },
-      { to: '/stock-report',  label: 'Lap. Stok' },
+      { to: '/products',       label: 'Produk' },
+      { to: '/product-labels', label: 'Label Produk' },
+      { to: '/promos',         label: 'Promo' },
+      { to: '/stock-opname',   label: 'Stock Opname' },
+      { to: '/stock-report',   label: 'Lap. Stok' },
     ],
   },
   {
@@ -60,9 +63,10 @@ const OWNER_GROUPS = [
     items: [
       { to: '/customers',     label: 'Pelanggan' },
       { to: '/suppliers',     label: 'Supplier' },
-      { to: '/shifts',        label: 'Riwayat Shift' },
-      { to: '/activity-log',  label: 'Log Aktivitas' },
-      { to: '/reports',       label: 'Laporan' },
+      { to: '/cashier-report', label: 'Lap. Kasir' },
+      { to: '/shifts',         label: 'Riwayat Shift' },
+      { to: '/activity-log',   label: 'Log Aktivitas' },
+      { to: '/reports',        label: 'Laporan' },
       { to: '/settings',      label: 'Pengaturan' },
     ],
   },
@@ -285,8 +289,10 @@ function AppShell() {
             <Route path="/tutup-kas"       element={<TutupKas />} />
             <Route path="/customers"     element={<Customers />} />
             <Route path="/suppliers"     element={<Suppliers />} />
-            <Route path="/shifts"        element={<Shifts />} />
-            <Route path="/activity-log"  element={<ActivityLog />} />
+            <Route path="/cashier-report"  element={<CashierReport />} />
+            <Route path="/product-labels" element={<ProductLabels />} />
+            <Route path="/shifts"         element={<Shifts />} />
+            <Route path="/activity-log"   element={<ActivityLog />} />
             <Route path="/reports"       element={<Reports />} />
             <Route path="/settings"      element={<Settings />} />
           </>}

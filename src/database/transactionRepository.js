@@ -21,11 +21,13 @@ const transactionRepository = {
 
       const insertItem = db.prepare(`
         INSERT INTO transaction_items
-          (transaction_id, product_id, product_name, price, cost_price, quantity, subtotal)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+          (transaction_id, product_id, product_name, price, cost_price, quantity, subtotal,
+           item_discount, item_discount_type)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
       for (const item of items) {
-        insertItem.run(txId, item.productId, item.productName, item.price, item.costPrice ?? 0, item.quantity, item.subtotal)
+        insertItem.run(txId, item.productId, item.productName, item.price, item.costPrice ?? 0,
+          item.quantity, item.subtotal, item.itemDiscount ?? 0, item.itemDiscountType ?? 'nominal')
         productRepository.decrementStock(item.productId, item.quantity)
       }
 

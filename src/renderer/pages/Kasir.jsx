@@ -11,25 +11,52 @@ const PAYMENT_METHODS = [
   { key: 'qris',     label: 'QRIS' },
 ]
 
-function CartItem({ item, onQtyChange, onRemove }) {
+function CartItem({ item, onQtyChange, onRemove, onDiscountChange }) {
+  const [showDisc, setShowDisc] = useState(false)
+  const discountAmt = item.itemDiscountType === 'percent'
+    ? Math.round(item.price * item.quantity * (item.itemDiscount / 100))
+    : (item.itemDiscount || 0)
+
   return (
-    <div className="flex items-center gap-3 py-2 border-b border-gray-100">
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate">{item.productName}</p>
-        <p className="text-xs text-gray-500">{formatRupiah(item.price)}</p>
+    <div className="py-2 border-b border-gray-100">
+      <div className="flex items-center gap-3">
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium truncate">{item.productName}</p>
+          <button onClick={() => setShowDisc(s => !s)}
+            className="text-xs text-gray-400 hover:text-blue-500 transition-colors">
+            {item.itemDiscount > 0 ? `Diskon: −${formatRupiah(discountAmt)}` : '+ diskon item'}
+          </button>
+        </div>
+        <div className="flex items-center gap-1">
+          <button onClick={() => onQtyChange(item.productId, item.quantity - 1)}
+            className="w-6 h-6 rounded bg-gray-200 hover:bg-gray-300 text-sm font-bold shrink-0">−</button>
+          <input type="number" min="1" value={item.quantity}
+            onChange={e => { const v = parseInt(e.target.value, 10); if (!isNaN(v)) onQtyChange(item.productId, v) }}
+            onFocus={e => e.target.select()}
+            className="w-12 text-center text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 py-0.5" />
+          <button onClick={() => onQtyChange(item.productId, item.quantity + 1)}
+            className="w-6 h-6 rounded bg-gray-200 hover:bg-gray-300 text-sm font-bold shrink-0">+</button>
+        </div>
+        <span className="text-sm font-medium w-20 text-right shrink-0">{formatRupiah(item.subtotal)}</span>
+        <button onClick={() => onRemove(item.productId)} className="text-red-400 hover:text-red-600 text-lg leading-none">×</button>
       </div>
-      <div className="flex items-center gap-1">
-        <button onClick={() => onQtyChange(item.productId, item.quantity - 1)}
-          className="w-6 h-6 rounded bg-gray-200 hover:bg-gray-300 text-sm font-bold shrink-0">−</button>
-        <input type="number" min="1" value={item.quantity}
-          onChange={e => { const v = parseInt(e.target.value, 10); if (!isNaN(v)) onQtyChange(item.productId, v) }}
-          onFocus={e => e.target.select()}
-          className="w-12 text-center text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 py-0.5" />
-        <button onClick={() => onQtyChange(item.productId, item.quantity + 1)}
-          className="w-6 h-6 rounded bg-gray-200 hover:bg-gray-300 text-sm font-bold shrink-0">+</button>
-      </div>
-      <span className="text-sm font-medium w-24 text-right">{formatRupiah(item.subtotal)}</span>
-      <button onClick={() => onRemove(item.productId)} className="text-red-400 hover:text-red-600 text-lg leading-none">×</button>
+      {showDisc && (
+        <div className="flex gap-1 mt-1.5 pl-0">
+          <div className="flex rounded border border-gray-300 overflow-hidden text-xs">
+            <button onClick={() => onDiscountChange(item.productId, item.itemDiscount, 'nominal')}
+              className={`px-2 py-1 font-medium ${item.itemDiscountType === 'nominal' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500'}`}>Rp</button>
+            <button onClick={() => onDiscountChange(item.productId, item.itemDiscount, 'percent')}
+              className={`px-2 py-1 font-medium ${item.itemDiscountType === 'percent' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500'}`}>%</button>
+          </div>
+          <input type="number" min="0" placeholder="0" value={item.itemDiscount || ''}
+            onChange={e => onDiscountChange(item.productId, parseFloat(e.target.value) || 0, item.itemDiscountType)}
+            className="w-24 px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          {item.itemDiscount > 0 && (
+            <button onClick={() => { onDiscountChange(item.productId, 0, 'nominal'); setShowDisc(false) }}
+              className="text-xs text-gray-400 hover:text-red-500 px-1">hapus</button>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -148,16 +175,26 @@ export default function Kasir() {
   const barcodeTimer = useRef(null)
   const searchRef = useRef(null)
 
+  const calcSubtotal = (price, qty, discount, discType) => {
+    const discAmt = discType === 'percent' ? Math.round(price * qty * (discount / 100)) : (discount || 0)
+    return Math.max(0, price * qty - discAmt)
+  }
+
   const addToCart = useCallback((product) => {
     if (product.stock === 0) return
     setCart(prev => {
       const existing = prev.find(i => i.productId === product.id)
       if (existing) {
+        const qty = existing.quantity + 1
         return prev.map(i => i.productId === product.id
-          ? { ...i, quantity: i.quantity + 1, subtotal: (i.quantity + 1) * i.price }
+          ? { ...i, quantity: qty, subtotal: calcSubtotal(i.price, qty, i.itemDiscount, i.itemDiscountType) }
           : i)
       }
-      return [...prev, { productId: product.id, productName: product.name, price: product.price, quantity: 1, subtotal: product.price }]
+      return [...prev, {
+        productId: product.id, productName: product.name, price: product.price,
+        quantity: 1, subtotal: product.price,
+        itemDiscount: 0, itemDiscountType: 'nominal',
+      }]
     })
   }, [])
 
@@ -184,7 +221,16 @@ export default function Kasir() {
 
   const changeQty = (productId, qty) => {
     if (qty <= 0) setCart(prev => prev.filter(i => i.productId !== productId))
-    else setCart(prev => prev.map(i => i.productId === productId ? { ...i, quantity: qty, subtotal: qty * i.price } : i))
+    else setCart(prev => prev.map(i => i.productId === productId
+      ? { ...i, quantity: qty, subtotal: calcSubtotal(i.price, qty, i.itemDiscount, i.itemDiscountType) }
+      : i))
+  }
+
+  const changeItemDiscount = (productId, discount, discType) => {
+    setCart(prev => prev.map(i => i.productId === productId
+      ? { ...i, itemDiscount: discount, itemDiscountType: discType,
+          subtotal: calcSubtotal(i.price, i.quantity, discount, discType) }
+      : i))
   }
 
   const removeItem = (productId) => setCart(prev => prev.filter(i => i.productId !== productId))
@@ -215,7 +261,12 @@ export default function Kasir() {
     if (isCredit && !customerName.trim()) return alert('Masukkan nama pelanggan untuk piutang.')
 
     const tx = await window.electronAPI.createTransaction({
-      items: cart.map(i => ({ ...i, costPrice: products.find(p => p.id === i.productId)?.cost_price ?? 0 })),
+      items: cart.map(i => ({
+        ...i,
+        costPrice: products.find(p => p.id === i.productId)?.cost_price ?? 0,
+        itemDiscount: i.itemDiscount ?? 0,
+        itemDiscountType: i.itemDiscountType ?? 'nominal',
+      })),
       subtotal, discount: discountAmount, discountType, total,
       payment: isCredit ? paymentNum : totalPaid,
       change: isCredit ? paymentNum - total : change,
@@ -359,7 +410,7 @@ export default function Kasir() {
         <div className="flex-1 overflow-auto px-4 py-2">
           {cart.length === 0
             ? <p className="text-gray-400 text-sm text-center mt-8">Keranjang kosong</p>
-            : cart.map(item => <CartItem key={item.productId} item={item} onQtyChange={changeQty} onRemove={removeItem} />)}
+            : cart.map(item => <CartItem key={item.productId} item={item} onQtyChange={changeQty} onRemove={removeItem} onDiscountChange={changeItemDiscount} />)}
         </div>
 
         <div className="p-4 border-t border-gray-200 space-y-2.5">

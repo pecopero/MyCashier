@@ -63,6 +63,7 @@ app.whenReady().then(() => {
   require('../ipc/notificationHandlers')
   require('../ipc/shiftHandlers')
   require('../ipc/activityLogHandlers')
+  require('../ipc/labelHandlers')
 
   // Session management
   ipcMain.handle('session:set', (_, user) => { session.set(user); return { ok: true } })

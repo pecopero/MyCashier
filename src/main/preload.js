@@ -99,6 +99,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getStockValueReport: () => ipcRenderer.invoke('reports:stockValue'),
   getDashboardData: () => ipcRenderer.invoke('reports:dashboard'),
   getLowStockReport: () => ipcRenderer.invoke('reports:lowStock'),
+  getCashierReport: (filters) => ipcRenderer.invoke('reports:byCashier', filters),
+
+  // Labels
+  printLabels: (items) => ipcRenderer.invoke('labels:print', items),
+  previewLabels: (items) => ipcRenderer.invoke('labels:preview', items),
 
   // Session
   setSession: (user) => ipcRenderer.invoke('session:set', user),

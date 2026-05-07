@@ -41,7 +41,8 @@ function initSchema() {
       ('tax_percent',         '0'),
       ('auto_backup_enabled', '0'),
       ('auto_backup_folder',  ''),
-      ('last_auto_backup',    '');
+      ('last_auto_backup',    ''),
+      ('daily_target',        '0');
 
     CREATE TABLE IF NOT EXISTS products (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -290,6 +291,8 @@ function migrate() {
     `ALTER TABLE transactions ADD COLUMN shift_id INTEGER`,
     `ALTER TABLE transactions ADD COLUMN user_id INTEGER`,
     `ALTER TABLE transactions ADD COLUMN user_name TEXT`,
+    `ALTER TABLE transaction_items ADD COLUMN item_discount REAL NOT NULL DEFAULT 0`,
+    `ALTER TABLE transaction_items ADD COLUMN item_discount_type TEXT NOT NULL DEFAULT 'nominal'`,
   ]
   for (const sql of migrations) {
     try { db.exec(sql) } catch { /* kolom sudah ada, skip */ }

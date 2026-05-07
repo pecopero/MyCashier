@@ -8,7 +8,12 @@
       "Bash(git branch *)",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(git commit *)",
+      "Bash(node -e ' *)",
+      "Bash(npx acorn *)",
+      "Bash(node -e \"require\\('acorn'\\); const fs = require\\('fs'\\); ['src/main/preload.js','src/main/index.js'].forEach\\(f => { try { require\\('acorn'\\).parse\\(fs.readFileSync\\(f,'utf8'\\),{ecmaVersion:2020}\\); console.log\\(f+' OK'\\) } catch\\(e\\) { console.error\\(f+' ERROR:',e.message\\) } }\\)\")",
+      "Bash(xargs cat -n)"
     ]
   }
 }

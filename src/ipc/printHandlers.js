@@ -27,15 +27,25 @@ function buildReceiptHTML(tx, settings) {
   const fmt = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(n)
   const date = new Date(tx.created_at).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' })
 
-  const rows = tx.items.map(item => `
+  const rows = tx.items.map(item => {
+    const hasItemDisc = item.item_discount > 0
+    const itemDiscAmt = item.item_discount_type === 'percent'
+      ? Math.round(item.price * item.quantity * (item.item_discount / 100))
+      : item.item_discount
+    const discRow = hasItemDisc
+      ? `<tr><td class="qty" colspan="2">  Diskon${item.item_discount_type === 'percent' ? ` ${item.item_discount}%` : ''}</td><td class="amount">- ${fmt(itemDiscAmt)}</td></tr>`
+      : ''
+    return `
     <tr>
       <td colspan="3" class="product">${item.product_name}</td>
     </tr>
     <tr>
       <td class="qty">${item.quantity} x ${fmt(item.price)}</td>
       <td></td>
-      <td class="amount">${fmt(item.subtotal)}</td>
-    </tr>`).join('')
+      <td class="amount">${fmt(item.price * item.quantity)}</td>
+    </tr>
+    ${discRow}`
+  }).join('')
 
   const discountRow = tx.discount > 0 ? `
     <tr class="separator"><td colspan="3"><hr/></td></tr>

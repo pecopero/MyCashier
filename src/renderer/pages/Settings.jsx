@@ -174,7 +174,7 @@ function UserManager() {
 
 export default function Settings() {
   const [form, setForm] = useState({
-    store_name: '', store_tagline: '', store_address: '', store_phone: '', receipt_note: '', tax_percent: '0',
+    store_name: '', store_tagline: '', store_address: '', store_phone: '', receipt_note: '', tax_percent: '0', daily_target: '0',
   })
   const [saved, setSaved] = useState(false)
   const [backupMsg, setBackupMsg] = useState('')
@@ -191,6 +191,7 @@ export default function Settings() {
         store_phone:   s.store_phone   ?? '',
         receipt_note:  s.receipt_note  ?? '',
         tax_percent:   s.tax_percent   ?? '0',
+        daily_target:  s.daily_target  ?? '0',
       })
       setAutoBackup({
         enabled: s.auto_backup_enabled === '1' || s.auto_backup_enabled === 1,
@@ -288,6 +289,11 @@ export default function Settings() {
           <Field label="Pajak (%)" hint="0 = tanpa pajak">
             <input type="number" min="0" max="100" className={input} value={form.tax_percent}
               onChange={e => setForm(f => ({ ...f, tax_percent: e.target.value }))} />
+          </Field>
+          <Field label="Target Omzet Harian (Rp)" hint="Tampil sebagai progress bar di Dashboard, 0 = nonaktif">
+            <input type="number" min="0" className={input} value={form.daily_target}
+              onChange={e => setForm(f => ({ ...f, daily_target: e.target.value }))}
+              placeholder="Contoh: 1000000" />
           </Field>
         </Section>
 

@@ -220,3 +220,45 @@ ipcMain.handle('reports:stockValue', () => {
     ORDER BY name ASC
   `).all()
 })
+
+ipcMain.handle('reports:byCashier', (_, { startDate, endDate }) => {
+  const db = getDb()
+
+  const byCashier = db.prepare(`
+    SELECT
+      COALESCE(user_name, 'Tidak diketahui') AS kasir,
+      COUNT(id)                               AS total_transaksi,
+      COALESCE(SUM(total), 0)                 AS total_omzet,
+      COALESCE(SUM(discount), 0)              AS total_diskon
+    FROM transactions
+    WHERE date(created_at, 'localtime') BETWEEN ? AND ?
+    GROUP BY user_name
+    ORDER BY total_omzet DESC
+  `).all(startDate, endDate)
+
+  const shifts = db.prepare(`
+    SELECT
+      user_name AS kasir,
+      COUNT(id)                      AS total_shift,
+      COALESCE(SUM(total_sales), 0)  AS total_sales,
+      COALESCE(SUM(total_transactions), 0) AS total_tx
+    FROM shifts
+    WHERE date(opened_at, 'localtime') BETWEEN ? AND ?
+    GROUP BY user_name
+    ORDER BY total_sales DESC
+  `).all(startDate, endDate)
+
+  const daily = db.prepare(`
+    SELECT
+      COALESCE(user_name, 'Tidak diketahui') AS kasir,
+      date(created_at, 'localtime')           AS hari,
+      COUNT(id)                               AS transaksi,
+      COALESCE(SUM(total), 0)                 AS omzet
+    FROM transactions
+    WHERE date(created_at, 'localtime') BETWEEN ? AND ?
+    GROUP BY user_name, date(created_at, 'localtime')
+    ORDER BY hari DESC, omzet DESC
+  `).all(startDate, endDate)
+
+  return { byCashier, shifts, daily }
+})

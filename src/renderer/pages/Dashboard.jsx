@@ -72,18 +72,21 @@ export default function Dashboard() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [dueSoon, setDueSoon] = useState({ hutang: [], piutang: [] })
+  const [dailyTarget, setDailyTarget] = useState(0)
   const navigate = useNavigate()
 
   const load = async () => {
     setLoading(true)
-    const [result, hutang, piutang] = await Promise.all([
+    const [result, hutang, piutang, settings] = await Promise.all([
       window.electronAPI.getDashboardData(),
       window.electronAPI.getOverduePurchases().then(o =>
         window.electronAPI.getPurchasesDueSoon().then(s => [...o, ...s])),
       window.electronAPI.getReceivablesDueSoon(),
+      window.electronAPI.getSettings(),
     ])
     setData(result)
     setDueSoon({ hutang, piutang })
+    setDailyTarget(parseFloat(settings.daily_target) || 0)
     setLoading(false)
   }
 
@@ -165,6 +168,31 @@ export default function Dashboard() {
             sub={prfPct ? `${prfPct.up ? '↑' : '↓'} ${prfPct.diff}% vs kemarin` : today.revenue > 0 ? `Margin ${(today.profit / today.revenue * 100).toFixed(1)}%` : 'laba hari ini'} />
         </div>
       </div>
+
+      {/* Target penjualan harian */}
+      {dailyTarget > 0 && (
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <div className="flex justify-between items-center mb-2">
+            <p className="text-sm font-semibold text-gray-700">Target Penjualan Hari Ini</p>
+            <span className={`text-sm font-bold ${today.revenue >= dailyTarget ? 'text-green-600' : 'text-blue-600'}`}>
+              {Math.min(100, Math.round(today.revenue / dailyTarget * 100))}%
+            </span>
+          </div>
+          <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
+            <div
+              className={`h-3 rounded-full transition-all ${today.revenue >= dailyTarget ? 'bg-green-500' : 'bg-blue-500'}`}
+              style={{ width: `${Math.min(100, (today.revenue / dailyTarget) * 100)}%` }}
+            />
+          </div>
+          <div className="flex justify-between text-xs text-gray-400 mt-1.5">
+            <span>{formatRupiah(today.revenue)}</span>
+            <span>Target: {formatRupiah(dailyTarget)}</span>
+          </div>
+          {today.revenue >= dailyTarget && (
+            <p className="text-xs text-green-600 font-medium mt-1">Target tercapai!</p>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-3 gap-6">
         {/* Grafik 7 hari */}
