@@ -101,31 +101,85 @@ function BellIcon({ counts, onClick }) {
   )
 }
 
+function fmtRp(n) {
+  return 'Rp ' + Math.round(n ?? 0).toLocaleString('id-ID')
+}
+function fmtDueDate(s) {
+  if (!s) return '-'
+  return new Date(s + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })
+}
+
 function NotifPanel({ counts, onClose, onNavigate }) {
-  if (!counts || counts.total === 0) return (
-    <div className="absolute bottom-16 left-2 right-2 bg-white border border-gray-200 rounded-xl shadow-xl z-50 p-4">
-      <p className="text-sm text-gray-400 text-center">Tidak ada tagihan jatuh tempo</p>
-    </div>
-  )
+  const empty = !counts || counts.total === 0
+  const hutangItems  = counts?.hutangItems  ?? []
+  const piutangItems = counts?.piutangItems ?? []
+
   return (
-    <div className="absolute bottom-16 left-2 right-2 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden">
-      <div className="px-4 py-3 border-b border-gray-100 flex justify-between items-center">
-        <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Perhatian</p>
+    <div className="absolute bottom-16 left-0 w-72 bg-white border border-gray-200 rounded-xl shadow-xl z-50 flex flex-col max-h-[420px]">
+      <div className="px-4 py-2.5 border-b border-gray-100 flex justify-between items-center shrink-0">
+        <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Tagihan Jatuh Tempo</p>
         <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg leading-none">×</button>
       </div>
-      {counts.hutang > 0 && (
-        <button onClick={() => onNavigate('/hutang')}
-          className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-100">
-          <p className="text-sm font-medium text-red-600">{counts.hutang} hutang jatuh tempo</p>
-          {counts.overdueHutang > 0 && <p className="text-xs text-gray-500">{counts.overdueHutang} sudah lewat jatuh tempo</p>}
-        </button>
-      )}
-      {counts.piutang > 0 && (
-        <button onClick={() => onNavigate('/piutang')}
-          className="w-full text-left px-4 py-3 hover:bg-gray-50">
-          <p className="text-sm font-medium text-orange-600">{counts.piutang} piutang jatuh tempo</p>
-          {counts.overduepiutang > 0 && <p className="text-xs text-gray-500">{counts.overduepiutang} sudah lewat jatuh tempo</p>}
-        </button>
+
+      {empty ? (
+        <p className="text-sm text-gray-400 text-center py-6">Tidak ada tagihan jatuh tempo</p>
+      ) : (
+        <div className="overflow-y-auto flex-1">
+          {hutangItems.length > 0 && (
+            <>
+              <div className="px-4 py-1.5 bg-red-50 sticky top-0">
+                <span className="text-[10px] font-bold text-red-600 uppercase tracking-wide">
+                  Hutang — {counts.hutang} tagihan
+                </span>
+              </div>
+              {hutangItems.map((item, i) => (
+                <button key={i} onClick={() => onNavigate('/hutang')}
+                  className="w-full text-left px-4 py-2 hover:bg-gray-50 border-b border-gray-50 flex justify-between items-start gap-2">
+                  <div className="min-w-0">
+                    <p className={`text-xs font-medium truncate ${item.is_overdue ? 'text-red-600' : 'text-gray-700'}`}>
+                      {item.is_overdue && '⚠ '}{item.supplier_name}
+                    </p>
+                    <p className="text-[10px] text-gray-400">{item.is_overdue ? 'Lewat: ' : 'Jatuh tempo: '}{fmtDueDate(item.due_date)}</p>
+                  </div>
+                  <p className="text-xs font-semibold text-red-500 shrink-0 mt-0.5">{fmtRp(item.sisa)}</p>
+                </button>
+              ))}
+              {counts.hutang > hutangItems.length && (
+                <button onClick={() => onNavigate('/hutang')}
+                  className="w-full text-center px-4 py-1.5 text-[10px] text-blue-500 hover:bg-gray-50 border-b border-gray-100">
+                  +{counts.hutang - hutangItems.length} hutang lainnya →
+                </button>
+              )}
+            </>
+          )}
+          {piutangItems.length > 0 && (
+            <>
+              <div className="px-4 py-1.5 bg-orange-50 sticky top-0">
+                <span className="text-[10px] font-bold text-orange-600 uppercase tracking-wide">
+                  Piutang — {counts.piutang} tagihan
+                </span>
+              </div>
+              {piutangItems.map((item, i) => (
+                <button key={i} onClick={() => onNavigate('/piutang')}
+                  className="w-full text-left px-4 py-2 hover:bg-gray-50 border-b border-gray-50 flex justify-between items-start gap-2">
+                  <div className="min-w-0">
+                    <p className={`text-xs font-medium truncate ${item.is_overdue ? 'text-red-600' : 'text-gray-700'}`}>
+                      {item.is_overdue && '⚠ '}{item.customer_name}
+                    </p>
+                    <p className="text-[10px] text-gray-400">{item.is_overdue ? 'Lewat: ' : 'Jatuh tempo: '}{fmtDueDate(item.due_date)}</p>
+                  </div>
+                  <p className="text-xs font-semibold text-orange-500 shrink-0 mt-0.5">{fmtRp(item.sisa)}</p>
+                </button>
+              ))}
+              {counts.piutang > piutangItems.length && (
+                <button onClick={() => onNavigate('/piutang')}
+                  className="w-full text-center px-4 py-1.5 text-[10px] text-blue-500 hover:bg-gray-50">
+                  +{counts.piutang - piutangItems.length} piutang lainnya →
+                </button>
+              )}
+            </>
+          )}
+        </div>
       )}
     </div>
   )
