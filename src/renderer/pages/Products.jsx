@@ -199,6 +199,9 @@ export default function Products() {
   const [editId, setEditId] = useState(null)
   const [showForm, setShowForm] = useState(false)
   const [showImport, setShowImport] = useState(false)
+  const [search, setSearch] = useState('')
+  const [filterCategory, setFilterCategory] = useState('')
+  const [filterStock, setFilterStock] = useState('all') // 'all' | 'low' | 'ok'
 
   const resetForm = () => { setForm(EMPTY_FORM); setUnits([]); setEditId(null); setShowForm(false) }
 
@@ -254,6 +257,15 @@ export default function Products() {
 
   const lowStockCount = products.filter(p => p.stock <= (p.min_stock ?? 5)).length
 
+  const q = search.toLowerCase().trim()
+  const filtered = products.filter(p => {
+    if (q && !p.name.toLowerCase().includes(q) && !(p.barcode || '').includes(q) && !(p.category || '').toLowerCase().includes(q)) return false
+    if (filterCategory && p.category !== filterCategory) return false
+    if (filterStock === 'low' && p.stock > (p.min_stock ?? 5)) return false
+    if (filterStock === 'ok'  && p.stock <= (p.min_stock ?? 5)) return false
+    return true
+  })
+
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
@@ -273,6 +285,45 @@ export default function Products() {
             + Tambah Produk
           </button>
         </div>
+      </div>
+
+      {/* Search & filter bar */}
+      <div className="flex flex-wrap gap-3 mb-5">
+        <div className="relative flex-1 min-w-48">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
+            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+          </svg>
+          <input value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Cari nama, barcode, atau kategori..."
+            className="w-full pl-9 pr-8 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          {search && (
+            <button onClick={() => setSearch('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">×</button>
+          )}
+        </div>
+        <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)}
+          className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white min-w-36">
+          <option value="">Semua Kategori</option>
+          {[...new Set(products.map(p => p.category).filter(Boolean))].sort().map(c => (
+            <option key={c} value={c}>{c}</option>
+          ))}
+        </select>
+        <select value={filterStock} onChange={e => setFilterStock(e.target.value)}
+          className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+          <option value="all">Semua Stok</option>
+          <option value="low">Stok Menipis</option>
+          <option value="ok">Stok Aman</option>
+        </select>
+        {(search || filterCategory || filterStock !== 'all') && (
+          <button onClick={() => { setSearch(''); setFilterCategory(''); setFilterStock('all') }}
+            className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">
+            Reset
+          </button>
+        )}
+        <span className="self-center text-xs text-gray-400">
+          {filtered.length} / {products.length} produk
+        </span>
       </div>
 
       {showImport && <ImportModal onClose={() => setShowImport(false)} onDone={() => { reload(); setShowImport(false) }} />}
@@ -407,7 +458,7 @@ export default function Products() {
               </tr>
             </thead>
             <tbody>
-              {products.map(p => (
+              {filtered.map(p => (
                 <tr key={p.id} className={`border-b border-gray-100 hover:bg-gray-50 ${p.stock <= (p.min_stock ?? 5) ? 'bg-red-50' : ''}`}>
                   <td className="px-4 py-3 font-medium">{p.name}</td>
                   <td className="px-4 py-3 text-gray-500">{p.cost_price > 0 ? formatRupiah(p.cost_price) : '—'}</td>
@@ -426,8 +477,10 @@ export default function Products() {
                   </td>
                 </tr>
               ))}
-              {products.length === 0 && (
-                <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-400">Belum ada produk.</td></tr>
+              {filtered.length === 0 && (
+                <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-400">
+                  {products.length === 0 ? 'Belum ada produk.' : 'Tidak ada produk yang cocok dengan filter.'}
+                </td></tr>
               )}
             </tbody>
           </table>

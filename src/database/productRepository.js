@@ -48,13 +48,22 @@ const productRepository = {
   },
 
   incrementStock(id, quantity, newCostPrice = null) {
-    if (newCostPrice !== null) {
-      return getDb().prepare(`
+    const db = getDb()
+    if (newCostPrice !== null && newCostPrice > 0) {
+      // Weighted Average Cost: rata-rata tertimbang stok lama + stok baru
+      const product = db.prepare('SELECT stock, cost_price FROM products WHERE id = ?').get(id)
+      const existingStock = product?.stock ?? 0
+      const oldCost       = product?.cost_price ?? newCostPrice
+      const totalQty      = existingStock + quantity
+      const avgCost       = totalQty > 0
+        ? Math.round((existingStock * oldCost + quantity * newCostPrice) / totalQty)
+        : newCostPrice
+      return db.prepare(`
         UPDATE products SET stock = stock + ?, cost_price = ?, updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
-      `).run(quantity, newCostPrice, id)
+      `).run(quantity, avgCost, id)
     }
-    return getDb().prepare(`
+    return db.prepare(`
       UPDATE products SET stock = stock + ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `).run(quantity, id)
