@@ -74,6 +74,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Expenses
   getExpenses: (filters) => ipcRenderer.invoke('expenses:getAll', filters),
+  getCashOut: (filters) => ipcRenderer.invoke('expenses:getCashOut', filters),
   createExpense: (data) => ipcRenderer.invoke('expenses:create', data),
   updateExpense: (id, data) => ipcRenderer.invoke('expenses:update', id, data),
   deleteExpense: (id) => ipcRenderer.invoke('expenses:delete', id),
