@@ -66,7 +66,12 @@ function TransactionDetail({ txId, onClose, onVoided }) {
                 <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-bold rounded">VOID</span>
               )}
             </div>
-            {tx && <p className="text-xs text-gray-400 mt-0.5">{formatDate(tx.created_at)}</p>}
+            {tx && (
+              <p className="text-xs text-gray-400 mt-0.5">
+                {formatDate(tx.created_at)}
+                {tx.user_name && <span className="ml-2">· Kasir: <span className="font-medium text-gray-500">{tx.user_name}</span></span>}
+              </p>
+            )}
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none mt-0.5">×</button>
         </div>
@@ -273,7 +278,7 @@ export default function Sales() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50">
               <tr>
-                {['No','Waktu','Subtotal','Diskon','Total','Bayar','Kembalian'].map(h => (
+                {['No','Waktu','Kasir','Subtotal','Diskon','Total','Bayar','Kembalian'].map(h => (
                   <th key={h} className="text-left px-4 py-3 font-semibold text-gray-600">{h}</th>
                 ))}
               </tr>
@@ -287,6 +292,7 @@ export default function Sales() {
                     {t.is_void === 1 && <span className="ml-1 px-1 py-0.5 bg-red-100 text-red-600 text-[10px] font-bold rounded">VOID</span>}
                   </td>
                   <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">{formatDate(t.created_at)}</td>
+                  <td className="px-4 py-3 text-gray-600 text-xs">{t.user_name || <span className="text-gray-300">—</span>}</td>
                   <td className="px-4 py-3">{formatRupiah(t.subtotal || t.total)}</td>
                   <td className="px-4 py-3 text-orange-600">{t.discount > 0 ? `− ${formatRupiah(t.discount)}` : '—'}</td>
                   <td className="px-4 py-3 font-medium">{formatRupiah(t.total)}</td>
@@ -296,7 +302,7 @@ export default function Sales() {
               ))}
               {transactions.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-gray-400">
+                  <td colSpan={8} className="px-4 py-12 text-center text-gray-400">
                     Tidak ada transaksi di periode ini.
                   </td>
                 </tr>
