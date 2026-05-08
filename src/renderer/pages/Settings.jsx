@@ -174,31 +174,48 @@ function UserManager() {
 
 export default function Settings() {
   const [form, setForm] = useState({
-    store_name: '', store_tagline: '', store_address: '', store_phone: '', receipt_note: '', tax_percent: '0', daily_target: '0',
+    store_name: '', store_tagline: '', store_address: '', store_phone: '',
+    receipt_note: '', tax_percent: '0', daily_target: '0',
+    thermal_printer_name: '', thermal_paper_width: '58', print_silent: '0',
   })
   const [saved, setSaved] = useState(false)
   const [backupMsg, setBackupMsg] = useState('')
   const [previewHtml, setPreviewHtml] = useState(null)
   const [autoBackup, setAutoBackup] = useState({ enabled: false, folder: '' })
   const [autoBackupMsg, setAutoBackupMsg] = useState('')
+  const [printers, setPrinters] = useState([])
+  const [printersLoading, setPrintersLoading] = useState(false)
 
   useEffect(() => {
     window.electronAPI.getSettings().then(s => {
       setForm({
-        store_name:    s.store_name    ?? '',
-        store_tagline: s.store_tagline ?? '',
-        store_address: s.store_address ?? '',
-        store_phone:   s.store_phone   ?? '',
-        receipt_note:  s.receipt_note  ?? '',
-        tax_percent:   s.tax_percent   ?? '0',
-        daily_target:  s.daily_target  ?? '0',
+        store_name:           s.store_name           ?? '',
+        store_tagline:        s.store_tagline        ?? '',
+        store_address:        s.store_address        ?? '',
+        store_phone:          s.store_phone          ?? '',
+        receipt_note:         s.receipt_note         ?? '',
+        tax_percent:          s.tax_percent          ?? '0',
+        daily_target:         s.daily_target         ?? '0',
+        thermal_printer_name: s.thermal_printer_name ?? '',
+        thermal_paper_width:  s.thermal_paper_width  ?? '58',
+        print_silent:         s.print_silent         ?? '0',
       })
       setAutoBackup({
         enabled: s.auto_backup_enabled === '1' || s.auto_backup_enabled === 1,
         folder:  s.auto_backup_folder ?? '',
       })
     })
+    loadPrinters()
   }, [])
+
+  const loadPrinters = async () => {
+    setPrintersLoading(true)
+    try {
+      const list = await window.electronAPI.getInstalledPrinters()
+      setPrinters(list)
+    } catch {}
+    setPrintersLoading(false)
+  }
 
   const handlePreview = async () => {
     const html = await window.electronAPI.previewReceipt(SAMPLE_TX, form)
@@ -209,8 +226,8 @@ export default function Settings() {
     e.preventDefault()
     await window.electronAPI.saveSettings({
       ...form,
-      auto_backup_enabled: autoBackup.enabled ? '1' : '0',
-      auto_backup_folder:  autoBackup.folder,
+      auto_backup_enabled:  autoBackup.enabled ? '1' : '0',
+      auto_backup_folder:   autoBackup.folder,
     })
     setSaved(true)
     setTimeout(() => setSaved(false), 2500)
@@ -294,6 +311,55 @@ export default function Settings() {
             <input type="number" min="0" className={input} value={form.daily_target}
               onChange={e => setForm(f => ({ ...f, daily_target: e.target.value }))}
               placeholder="Contoh: 1000000" />
+          </Field>
+        </Section>
+
+        <Section title="Printer Thermal (Struk)">
+          <Field label="Pilih Printer" hint="Kosongkan untuk print via dialog (default)">
+            <div className="flex gap-2">
+              <select className={`${input} flex-1`} value={form.thermal_printer_name}
+                onChange={e => setForm(f => ({ ...f, thermal_printer_name: e.target.value }))}>
+                <option value="">— Print via Dialog (default) —</option>
+                {printers.map(p => (
+                  <option key={p.name} value={p.name}>{p.name}{p.isDefault ? ' ★' : ''}</option>
+                ))}
+              </select>
+              <button type="button" onClick={loadPrinters} disabled={printersLoading}
+                className="px-3 py-2 bg-gray-100 border border-gray-200 rounded-lg text-sm hover:bg-gray-200 disabled:opacity-50 whitespace-nowrap">
+                {printersLoading ? '...' : '↻ Refresh'}
+              </button>
+            </div>
+          </Field>
+          <Field label="Lebar Kertas" hint="Sesuaikan dengan ukuran roll printer thermal">
+            <div className="flex gap-4">
+              {[['58', '58 mm (default)'], ['80', '80 mm']].map(([val, label]) => (
+                <label key={val} className="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" name="paper_width" value={val}
+                    checked={form.thermal_paper_width === val}
+                    onChange={() => setForm(f => ({ ...f, thermal_paper_width: val }))} />
+                  <span className="text-sm text-gray-700">{label}</span>
+                </label>
+              ))}
+            </div>
+          </Field>
+          <Field label="Mode Print" hint="Silent: langsung cetak tanpa dialog (harus pilih printer dulu)">
+            <div className="flex items-center gap-3">
+              <button type="button"
+                disabled={!form.thermal_printer_name}
+                onClick={() => setForm(f => ({ ...f, print_silent: f.print_silent === '1' ? '0' : '1' }))}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none disabled:opacity-40 ${form.print_silent === '1' ? 'bg-blue-600' : 'bg-gray-300'}`}>
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${form.print_silent === '1' ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+              <span className="text-sm text-gray-600">
+                {form.print_silent === '1' ? 'Silent — langsung cetak' : 'Dialog — muncul preview print'}
+              </span>
+            </div>
+          </Field>
+          <Field label="Test Print">
+            <button type="button" onClick={() => window.electronAPI.printReceipt(SAMPLE_TX)}
+              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium border border-gray-200">
+              🖨 Test Print Struk
+            </button>
           </Field>
         </Section>
 

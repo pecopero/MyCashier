@@ -89,6 +89,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Print
   printReceipt: (tx) => ipcRenderer.invoke('print:receipt', tx),
   previewReceipt: (tx, settingsOverride) => ipcRenderer.invoke('print:preview', tx, settingsOverride),
+  getInstalledPrinters: () => ipcRenderer.invoke('print:getInstalledPrinters'),
 
   // Export Excel
   exportSales: (filters) => ipcRenderer.invoke('export:sales', filters),
@@ -104,6 +105,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getStockValueReport: () => ipcRenderer.invoke('reports:stockValue'),
   getDashboardData: () => ipcRenderer.invoke('reports:dashboard'),
   getLowStockReport: () => ipcRenderer.invoke('reports:lowStock'),
+  getSalesChart: (days) => ipcRenderer.invoke('reports:salesChart', { days }),
   getCashierReport: (filters) => ipcRenderer.invoke('reports:byCashier', filters),
 
   // Labels

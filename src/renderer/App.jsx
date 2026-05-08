@@ -25,6 +25,7 @@ import ActivityLog from './pages/ActivityLog'
 import CashierReport from './pages/CashierReport'
 import ProductLabels from './pages/ProductLabels'
 import CashFlow from './pages/CashFlow'
+import LowStock from './pages/LowStock'
 
 const OWNER_GROUPS = [
   {
@@ -46,6 +47,7 @@ const OWNER_GROUPS = [
       { to: '/promos',         label: 'Promo' },
       { to: '/stock-opname',   label: 'Stock Opname' },
       { to: '/stock-report',   label: 'Lap. Stok' },
+      { to: '/low-stock',      label: 'Stok Menipis' },
     ],
   },
   {
@@ -110,9 +112,10 @@ function fmtDueDate(s) {
 }
 
 function NotifPanel({ counts, onClose, onNavigate }) {
-  const empty = !counts || counts.total === 0
+  const empty        = !counts || counts.total === 0
   const hutangItems  = counts?.hutangItems  ?? []
   const piutangItems = counts?.piutangItems ?? []
+  const lowStockItems = counts?.lowStockItems ?? []
 
   return (
     <div className="absolute bottom-16 left-0 w-72 bg-white border border-gray-200 rounded-xl shadow-xl z-50 flex flex-col max-h-[420px]">
@@ -175,6 +178,30 @@ function NotifPanel({ counts, onClose, onNavigate }) {
                 <button onClick={() => onNavigate('/piutang')}
                   className="w-full text-center px-4 py-1.5 text-[10px] text-blue-500 hover:bg-gray-50">
                   +{counts.piutang - piutangItems.length} piutang lainnya →
+                </button>
+              )}
+            </>
+          )}
+          {lowStockItems.length > 0 && (
+            <>
+              <div className="px-4 py-1.5 bg-yellow-50 sticky top-0">
+                <span className="text-[10px] font-bold text-yellow-700 uppercase tracking-wide">
+                  Stok Menipis — {counts.lowStock} produk
+                </span>
+              </div>
+              {lowStockItems.map((item, i) => (
+                <button key={i} onClick={() => onNavigate('/low-stock')}
+                  className="w-full text-left px-4 py-2 hover:bg-gray-50 border-b border-gray-50 flex justify-between items-center gap-2">
+                  <p className="text-xs text-gray-700 truncate">{item.name}</p>
+                  <span className={`text-xs font-semibold shrink-0 ${item.stock === 0 ? 'text-red-600' : 'text-yellow-600'}`}>
+                    {item.stock === 0 ? 'Habis' : `Sisa ${item.stock} ${item.unit}`}
+                  </span>
+                </button>
+              ))}
+              {counts.lowStock > lowStockItems.length && (
+                <button onClick={() => onNavigate('/low-stock')}
+                  className="w-full text-center px-4 py-1.5 text-[10px] text-blue-500 hover:bg-gray-50">
+                  +{counts.lowStock - lowStockItems.length} produk lainnya →
                 </button>
               )}
             </>
@@ -335,6 +362,7 @@ function AppShell() {
             <Route path="/promos"          element={<Promos />} />
             <Route path="/stock-opname"    element={<StockOpname />} />
             <Route path="/stock-report"    element={<StockReport />} />
+            <Route path="/low-stock"       element={<LowStock />} />
             <Route path="/purchases"       element={<Purchases />} />
             <Route path="/purchase-report" element={<PurchaseReport />} />
             <Route path="/hutang"          element={<Hutang />} />

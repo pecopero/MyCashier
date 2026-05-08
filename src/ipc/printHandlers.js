@@ -1,6 +1,14 @@
 const { ipcMain, BrowserWindow } = require('electron')
 const settingsRepository = require('../database/settingsRepository')
 
+ipcMain.handle('print:getInstalledPrinters', async () => {
+  const win = new BrowserWindow({ show: false, webPreferences: { nodeIntegration: false, contextIsolation: true } })
+  await win.loadURL('about:blank')
+  const printers = await win.webContents.getPrintersAsync()
+  win.destroy()
+  return printers.map(p => ({ name: p.name, isDefault: p.isDefault }))
+})
+
 const METHOD_LABEL = { cash: 'Tunai', transfer: 'Transfer', qris: 'QRIS', credit: 'Piutang' }
 
 function buildPaymentRows(tx, fmt) {
@@ -23,7 +31,9 @@ function buildPaymentRows(tx, fmt) {
     <tr><td colspan="2">Kembalian</td><td class="amount">${fmt(tx.change)}</td></tr>`
 }
 
-function buildReceiptHTML(tx, settings) {
+function buildReceiptHTML(tx, settings, paperWidth) {
+  const mm  = (paperWidth || settings.thermal_paper_width || '58') === '80' ? '80mm' : '58mm'
+  const px  = mm === '80mm' ? '375px' : '280px'
   const fmt = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(n)
   const date = new Date(tx.created_at).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' })
 
@@ -70,7 +80,7 @@ function buildReceiptHTML(tx, settings) {
   body {
     font-family: 'Courier New', monospace;
     font-size: 12px;
-    width: 280px;
+    width: ${px};
     padding: 8px;
     color: #000;
   }
@@ -86,7 +96,7 @@ function buildReceiptHTML(tx, settings) {
   .total-row td { font-weight: bold; font-size: 13px; border-top: 1px dashed #000; padding-top: 4px; }
   .note { font-size: 11px; text-align: center; margin-top: 4px; line-height: 1.5; }
   @media print {
-    @page { margin: 0; size: 58mm auto; }
+    @page { margin: 0; size: ${mm} auto; }
   }
 </style>
 </head>
@@ -118,8 +128,10 @@ function buildReceiptHTML(tx, settings) {
 }
 
 ipcMain.handle('print:receipt', async (_, tx) => {
-  const settings = settingsRepository.getAll()
-  const html = buildReceiptHTML(tx, settings)
+  const settings    = settingsRepository.getAll()
+  const html        = buildReceiptHTML(tx, settings)
+  const printerName = settings.thermal_printer_name || ''
+  const silent      = settings.print_silent === '1' && !!printerName
 
   return new Promise((resolve) => {
     const win = new BrowserWindow({
@@ -130,13 +142,12 @@ ipcMain.handle('print:receipt', async (_, tx) => {
     win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html))
 
     win.webContents.once('did-finish-load', () => {
-      win.webContents.print(
-        { silent: false, printBackground: false },
-        (success) => {
-          win.destroy()
-          resolve({ success })
-        }
-      )
+      const printOpts = { silent, printBackground: false }
+      if (printerName) printOpts.deviceName = printerName
+      win.webContents.print(printOpts, (success) => {
+        win.destroy()
+        resolve({ success })
+      })
     })
   })
 })

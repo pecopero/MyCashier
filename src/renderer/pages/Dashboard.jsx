@@ -1,6 +1,40 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { formatRupiah, formatDate } from '../utils/format'
 import { useNavigate } from 'react-router-dom'
+import {
+  AreaChart, Area, BarChart, Bar,
+  XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
+} from 'recharts'
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+const DAY_NAMES = ['Min','Sen','Sel','Rab','Kam','Jum','Sab']
+
+function dayLabel(str, days) {
+  const d = new Date(str + 'T00:00:00')
+  if (days <= 7) return DAY_NAMES[d.getDay()]
+  const m = d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })
+  return m
+}
+
+function fmtAxis(n) {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(0)}jt`
+  if (n >= 1_000)     return `${(n / 1_000).toFixed(0)}rb`
+  return String(n)
+}
+
+function ChartTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg shadow-lg px-3 py-2 text-xs">
+      <p className="font-semibold text-gray-700 mb-1">{label}</p>
+      {payload.map((p, i) => (
+        <p key={i} style={{ color: p.color }}>
+          {p.name === 'revenue' ? `Omzet: ${formatRupiah(p.value)}` : `Transaksi: ${p.value}`}
+        </p>
+      ))}
+    </div>
+  )
+}
 
 function StatCard({ label, value, sub, color, onClick }) {
   const styles = {
@@ -19,60 +53,18 @@ function StatCard({ label, value, sub, color, onClick }) {
   )
 }
 
-function BarChart({ data }) {
-  if (!data || data.length === 0) return (
-    <p className="text-gray-400 text-sm text-center py-8">Belum ada data penjualan.</p>
-  )
-
-  const maxRevenue = Math.max(...data.map(d => d.revenue), 1)
-
-  // Isi 7 hari terakhir meski tidak ada transaksi
-  const days = []
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date()
-    d.setDate(d.getDate() - i)
-    const key = d.toLocaleDateString('en-CA')
-    const found = data.find(r => r.day === key)
-    days.push({ day: key, revenue: found?.revenue ?? 0, transactions: found?.transactions ?? 0 })
-  }
-
-  const dayLabel = (str) => {
-    const names = ['Min','Sen','Sel','Rab','Kam','Jum','Sab']
-    return names[new Date(str + 'T00:00:00').getDay()]
-  }
-
-  return (
-    <div className="flex items-end gap-2 h-40 px-2">
-      {days.map((d, i) => {
-        const pct = maxRevenue > 0 ? (d.revenue / maxRevenue) * 100 : 0
-        const isToday = d.day === new Date().toLocaleDateString('en-CA')
-        return (
-          <div key={i} className="flex-1 flex flex-col items-center gap-1 group relative">
-            {/* Tooltip */}
-            <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-              {formatRupiah(d.revenue)}
-            </div>
-            <div className="w-full flex items-end" style={{ height: '120px' }}>
-              <div
-                className={`w-full rounded-t-md transition-all ${isToday ? 'bg-blue-600' : 'bg-blue-200 group-hover:bg-blue-400'}`}
-                style={{ height: `${Math.max(pct, d.revenue > 0 ? 4 : 0)}%` }}
-              />
-            </div>
-            <span className={`text-xs ${isToday ? 'font-bold text-blue-600' : 'text-gray-400'}`}>
-              {dayLabel(d.day)}
-            </span>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
+// ── Main Component ────────────────────────────────────────────────────────────
 export default function Dashboard() {
-  const [data, setData] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [dueSoon, setDueSoon] = useState({ hutang: [], piutang: [] })
+  const [data, setData]         = useState(null)
+  const [loading, setLoading]   = useState(true)
+  const [dueSoon, setDueSoon]   = useState({ hutang: [], piutang: [] })
   const [dailyTarget, setDailyTarget] = useState(0)
+
+  // Chart state
+  const [chartDays, setChartDays]   = useState(7)
+  const [chartData, setChartData]   = useState([])
+  const [chartLoading, setChartLoading] = useState(false)
+
   const navigate = useNavigate()
 
   const load = async () => {
@@ -85,6 +77,7 @@ export default function Dashboard() {
       window.electronAPI.getSettings(),
     ])
     setData(result)
+    setChartData(fillChartData(result.chart, 7))
     setDueSoon({ hutang, piutang })
     setDailyTarget(parseFloat(settings.daily_target) || 0)
     setLoading(false)
@@ -92,11 +85,22 @@ export default function Dashboard() {
 
   useEffect(() => { load() }, [])
 
+  const loadChart = useCallback(async (days) => {
+    setChartLoading(true)
+    const raw = await window.electronAPI.getSalesChart(days)
+    setChartData(fillChartData(raw, days))
+    setChartLoading(false)
+  }, [])
+
+  useEffect(() => {
+    if (!loading) loadChart(chartDays)
+  }, [chartDays])
+
   if (loading) return (
     <div className="flex items-center justify-center h-full text-gray-400">Memuat dashboard...</div>
   )
 
-  const { today, yesterday, chart, hourly, top5, lowStock, recentTx } = data
+  const { today, yesterday, hourly, top5, lowStock, recentTx } = data
   const alertCount = dueSoon.hutang.length + dueSoon.piutang.length
 
   const pct = (curr, prev) => {
@@ -159,7 +163,7 @@ export default function Dashboard() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard label="Transaksi" value={today.transactions} color="blue"
             sub={txPct ? `${txPct.up ? '↑' : '↓'} ${txPct.diff}% vs kemarin` : 'transaksi selesai'}
-            onClick={() => navigate('/reports')} />
+            onClick={() => navigate('/sales')} />
           <StatCard label="Omzet" value={formatRupiah(today.revenue)} color="blue"
             sub={revPct ? `${revPct.up ? '↑' : '↓'} ${revPct.diff}% vs kemarin` : 'total penjualan'} />
           <StatCard label="Modal (HPP)" value={formatRupiah(today.cost)} color="orange"
@@ -194,24 +198,50 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* Grafik penjualan + stok menipis */}
       <div className="grid grid-cols-3 gap-6">
-        {/* Grafik 7 hari */}
         <div className="col-span-2 bg-white rounded-xl border border-gray-200 p-5">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="font-bold text-gray-800">Penjualan 7 Hari Terakhir</h2>
-            <button onClick={() => navigate('/reports')}
-              className="text-xs text-blue-600 hover:underline">Lihat laporan →</button>
+            <h2 className="font-bold text-gray-800">Tren Penjualan</h2>
+            <div className="flex items-center gap-2">
+              {chartLoading && <span className="text-xs text-gray-400">Memuat...</span>}
+              {[7, 14, 30].map(d => (
+                <button key={d} onClick={() => setChartDays(d)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${chartDays === d
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                  {d}H
+                </button>
+              ))}
+              <button onClick={() => navigate('/reports')}
+                className="text-xs text-blue-600 hover:underline ml-1">Laporan →</button>
+            </div>
           </div>
-          <BarChart data={chart} />
+          <ResponsiveContainer width="100%" height={180}>
+            <AreaChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%"  stopColor="#3b82f6" stopOpacity={0.25} />
+                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
+              <YAxis tickFormatter={fmtAxis} tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} width={38} />
+              <Tooltip content={<ChartTooltip />} />
+              <Area type="monotone" dataKey="revenue" name="revenue"
+                stroke="#3b82f6" strokeWidth={2} fill="url(#grad)" dot={false} activeDot={{ r: 4 }} />
+            </AreaChart>
+          </ResponsiveContainer>
         </div>
 
-        {/* Alert stok menipis */}
+        {/* Stok menipis */}
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <div className="flex justify-between items-center mb-4">
             <h2 className="font-bold text-gray-800">Stok Menipis</h2>
             {lowStock.length > 0 && (
-              <button onClick={() => navigate('/purchases')}
-                className="text-xs text-blue-600 hover:underline">Beli stok →</button>
+              <button onClick={() => navigate('/low-stock')}
+                className="text-xs text-blue-600 hover:underline">Lihat semua →</button>
             )}
           </div>
           {lowStock.length === 0 ? (
@@ -221,60 +251,44 @@ export default function Dashboard() {
             </div>
           ) : (
             <ul className="space-y-2">
-              {lowStock.slice(0, 6).map(p => (
+              {lowStock.slice(0, 7).map(p => (
                 <li key={p.id} className="flex justify-between items-center text-sm">
                   <span className="truncate text-gray-700 mr-2">{p.name}</span>
-                  <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-bold ${p.stock === 0 ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}`}>
+                  <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-bold ${p.stock === 0 ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
                     {p.stock === 0 ? 'Habis' : `Sisa ${p.stock}`}
                   </span>
                 </li>
               ))}
-              {lowStock.length > 6 && (
-                <li className="text-xs text-gray-400 text-center pt-1">
-                  +{lowStock.length - 6} produk lainnya
-                </li>
+              {lowStock.length > 7 && (
+                <li className="text-xs text-gray-400 text-center pt-1">+{lowStock.length - 7} produk lainnya</li>
               )}
             </ul>
           )}
         </div>
       </div>
 
-      {/* Grafik per jam + Top produk */}
+      {/* Penjualan per jam + Top produk */}
       <div className="grid grid-cols-2 gap-6">
-        {/* Penjualan per jam hari ini */}
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <h2 className="font-bold text-gray-800 mb-4">Penjualan Per Jam (Hari Ini)</h2>
           {hourly.length === 0 ? (
             <p className="text-gray-400 text-sm text-center py-6">Belum ada transaksi hari ini.</p>
           ) : (
-            <div className="flex items-end gap-1 h-28">
-              {Array.from({ length: 24 }, (_, h) => {
-                const hStr = String(h).padStart(2, '0')
-                const d = hourly.find(r => r.hour === hStr)
-                const maxRev = Math.max(...hourly.map(r => r.revenue), 1)
-                const pct = d ? (d.revenue / maxRev) * 100 : 0
-                return (
-                  <div key={h} className="flex-1 flex flex-col items-center gap-0.5 group relative">
-                    {d && (
-                      <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] rounded px-1.5 py-0.5 whitespace-nowrap opacity-0 group-hover:opacity-100 z-10 pointer-events-none">
-                        {formatRupiah(d.revenue)}
-                      </div>
-                    )}
-                    <div className="w-full flex items-end" style={{ height: '80px' }}>
-                      <div className={`w-full rounded-t transition-all ${d ? 'bg-blue-500 group-hover:bg-blue-600' : 'bg-gray-100'}`}
-                        style={{ height: `${Math.max(pct, d ? 4 : 0)}%` }} />
-                    </div>
-                    {h % 4 === 0 && <span className="text-[9px] text-gray-400">{hStr}</span>}
-                  </div>
-                )
-              })}
-            </div>
+            <ResponsiveContainer width="100%" height={120}>
+              <BarChart data={buildHourlyData(hourly)} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
+                <XAxis dataKey="hour" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false}
+                  interval={3} />
+                <Tooltip formatter={(v) => [formatRupiah(v), 'Omzet']}
+                  labelFormatter={l => `Jam ${l}:00`}
+                  contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb' }} />
+                <Bar dataKey="revenue" fill="#3b82f6" radius={[3, 3, 0, 0]} maxBarSize={20} />
+              </BarChart>
+            </ResponsiveContainer>
           )}
         </div>
 
-        {/* Top 5 produk 7 hari */}
         <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <h2 className="font-bold text-gray-800 mb-4">Top Produk (7 Hari)</h2>
+          <h2 className="font-bold text-gray-800 mb-4">Top Produk ({chartDays} Hari)</h2>
           {top5.length === 0 ? (
             <p className="text-gray-400 text-sm text-center py-6">Belum ada data.</p>
           ) : (
@@ -303,7 +317,7 @@ export default function Dashboard() {
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div className="px-5 py-3 border-b border-gray-100 flex justify-between items-center">
           <h2 className="font-bold text-gray-800">Transaksi Terbaru</h2>
-          <button onClick={() => navigate('/reports')} className="text-xs text-blue-600 hover:underline">
+          <button onClick={() => navigate('/sales')} className="text-xs text-blue-600 hover:underline">
             Lihat semua →
           </button>
         </div>
@@ -331,4 +345,29 @@ export default function Dashboard() {
       </div>
     </div>
   )
+}
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
+function fillChartData(raw, days) {
+  const map = Object.fromEntries((raw || []).map(r => [r.day, r]))
+  const result = []
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 86400000)
+    const key = d.toLocaleDateString('en-CA')
+    result.push({
+      day: key,
+      label: dayLabel(key, days),
+      revenue: map[key]?.revenue ?? 0,
+      transactions: map[key]?.transactions ?? 0,
+    })
+  }
+  return result
+}
+
+function buildHourlyData(hourly) {
+  return Array.from({ length: 24 }, (_, h) => {
+    const hStr = String(h).padStart(2, '0')
+    const d = hourly.find(r => r.hour === hStr)
+    return { hour: hStr, revenue: d?.revenue ?? 0, count: d?.count ?? 0 }
+  })
 }

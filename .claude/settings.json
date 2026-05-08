@@ -13,7 +13,13 @@
       "Bash(node -e ' *)",
       "Bash(npx acorn *)",
       "Bash(node -e \"require\\('acorn'\\); const fs = require\\('fs'\\); ['src/main/preload.js','src/main/index.js'].forEach\\(f => { try { require\\('acorn'\\).parse\\(fs.readFileSync\\(f,'utf8'\\),{ecmaVersion:2020}\\); console.log\\(f+' OK'\\) } catch\\(e\\) { console.error\\(f+' ERROR:',e.message\\) } }\\)\")",
-      "Bash(xargs cat -n)"
+      "Bash(xargs cat -n)",
+      "Bash(node scripts/seed.js)",
+      "Bash(npm rebuild *)",
+      "Bash(node scripts/seed.js --force)",
+      "Bash(npx electron-rebuild *)",
+      "Bash(npx vite *)",
+      "Bash(npx --yes vite build)"
     ]
   }
 }

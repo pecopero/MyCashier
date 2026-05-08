@@ -2,6 +2,21 @@ const { ipcMain } = require('electron')
 const { getDb } = require('../database/db')
 const expenseRepository = require('../database/expenseRepository')
 
+ipcMain.handle('reports:salesChart', (_, { days = 7 } = {}) => {
+  const db = getDb()
+  const today = new Date().toLocaleDateString('en-CA')
+  const start = new Date(Date.now() - (days - 1) * 86400000).toLocaleDateString('en-CA')
+  return db.prepare(`
+    SELECT date(created_at, 'localtime') AS day,
+           COALESCE(SUM(total), 0)       AS revenue,
+           COUNT(id)                     AS transactions
+    FROM transactions
+    WHERE date(created_at, 'localtime') BETWEEN ? AND ?
+      AND (is_void = 0 OR is_void IS NULL)
+    GROUP BY day ORDER BY day ASC
+  `).all(start, today)
+})
+
 ipcMain.handle('reports:sales', (_, { startDate, endDate }) => {
   const db = getDb()
 
