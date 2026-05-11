@@ -110,11 +110,16 @@ export default function Hutang() {
 
   const load = async () => {
     setLoading(true)
-    const data = filter === 'all'
-      ? await window.electronAPI.getPurchases({ limit: 200 })
-      : await window.electronAPI.getUnpaidPurchases()
-    setHutang(filter === 'all' ? data : data)
-    setLoading(false)
+    try {
+      const data = filter === 'all'
+        ? await window.electronAPI.getPurchases({ limit: 200 })
+        : await window.electronAPI.getUnpaidPurchases()
+      setHutang(data || [])
+    } catch (_) {
+      setHutang([])
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { load() }, [filter])

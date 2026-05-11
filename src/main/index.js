@@ -1,7 +1,12 @@
-const { app, BrowserWindow, ipcMain, Notification } = require('electron')
+const { app, BrowserWindow, ipcMain, Notification, shell } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const session = require('./session')
+const { readConfig: readNetConfig } = require('./networkConfig')
+
+// Must be required before app.whenReady so the ipcMain.handle monkey-patch
+// is active before any handler files are loaded
+require('./rpcServer')
 
 const isDev = process.env.NODE_ENV === 'development'
 
@@ -36,6 +41,16 @@ function createWindow() {
   mainWindow.on('closed', () => {
     mainWindow = null
   })
+
+  // F12 / Ctrl+Shift+I → toggle DevTools (works in both dev and production)
+  mainWindow.webContents.on('before-input-event', (_, input) => {
+    if (input.type !== 'keyDown') return
+    const toggle =
+      input.key === 'F12' ||
+      (input.control && input.shift && input.key === 'I') ||
+      (input.meta && input.alt && input.key === 'I')
+    if (toggle) mainWindow.webContents.toggleDevTools()
+  })
 }
 
 app.whenReady().then(() => {
@@ -66,10 +81,23 @@ app.whenReady().then(() => {
   require('../ipc/labelHandlers')
   require('../ipc/productUnitHandlers')
   require('../ipc/cashFlowHandlers')
+  require('../ipc/monthlyClosingHandlers')
+  require('../ipc/networkHandlers')
+  require('../ipc/priceHistoryHandlers')
 
   // Session management
   ipcMain.handle('session:set', (_, user) => { session.set(user); return { ok: true } })
   ipcMain.handle('session:clear', () => { session.clear(); return { ok: true } })
+
+  // Open external URL in default browser
+  ipcMain.handle('shell:openExternal', (_, url) => shell.openExternal(url))
+
+  // Start RPC server if this machine is configured as server
+  const { startRpcServer } = require('./rpcServer')
+  const netCfg = readNetConfig()
+  if (netCfg.mode === 'server') {
+    startRpcServer(netCfg.serverPort || 3737)
+  }
 
   checkDueNotifications()
   runAutoBackup()

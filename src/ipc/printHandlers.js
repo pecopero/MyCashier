@@ -12,6 +12,18 @@ ipcMain.handle('print:getInstalledPrinters', async () => {
 const METHOD_LABEL = { cash: 'Tunai', transfer: 'Transfer', qris: 'QRIS', credit: 'Piutang' }
 
 function buildPaymentRows(tx, fmt) {
+  // Credit / piutang transaction
+  if (tx.payment_type === 'credit') {
+    const downPayment = tx.payment || 0
+    const remaining   = tx.total - downPayment
+    const rows = downPayment > 0
+      ? `<tr><td colspan="2">Bayar Muka</td><td class="amount">${fmt(downPayment)}</td></tr>`
+      : ''
+    return `
+      ${rows}
+      <tr><td colspan="2" class="credit-label">Piutang</td><td class="amount credit-label">${fmt(remaining)}</td></tr>`
+  }
+
   const methods = tx.paymentMethods || []
   const hasSplit = methods.length > 1
 
@@ -22,13 +34,13 @@ function buildPaymentRows(tx, fmt) {
       .join('')
     return `
       ${rows}
-      <tr><td colspan="2">Kembalian</td><td class="amount">${fmt(tx.change)}</td></tr>`
+      <tr><td colspan="2">Kembalian</td><td class="amount">${fmt(Math.max(0, tx.change))}</td></tr>`
   }
 
   const label = methods[0] ? (METHOD_LABEL[methods[0].method] ?? methods[0].method) : 'Bayar'
   return `
     <tr><td colspan="2">${label}</td><td class="amount">${fmt(tx.payment)}</td></tr>
-    <tr><td colspan="2">Kembalian</td><td class="amount">${fmt(tx.change)}</td></tr>`
+    <tr><td colspan="2">Kembalian</td><td class="amount">${fmt(Math.max(0, tx.change))}</td></tr>`
 }
 
 function buildReceiptHTML(tx, settings, paperWidth) {
@@ -94,6 +106,7 @@ function buildReceiptHTML(tx, settings, paperWidth) {
   .qty { color: #333; font-size: 11px; }
   .amount { text-align: right; white-space: nowrap; }
   .total-row td { font-weight: bold; font-size: 13px; border-top: 1px dashed #000; padding-top: 4px; }
+  .credit-label { font-weight: bold; color: #c00; }
   .note { font-size: 11px; text-align: center; margin-top: 4px; line-height: 1.5; }
   @media print {
     @page { margin: 0; size: ${mm} auto; }
@@ -109,6 +122,8 @@ function buildReceiptHTML(tx, settings, paperWidth) {
   </div>
   <div class="divider"></div>
   <div>No: #${tx.id || '—'} &nbsp;|&nbsp; ${date}</div>
+  ${tx.user_name ? `<div>Kasir: ${tx.user_name}</div>` : ''}
+  ${tx.customer_name ? `<div>Pelanggan: ${tx.customer_name}</div>` : ''}
   <div class="divider"></div>
 
   <table>

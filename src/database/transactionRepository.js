@@ -1,5 +1,19 @@
 const { getDb } = require('./db')
 const productRepository = require('./productRepository')
+const { verifyPin, isHashed, hashPin } = require('./pinUtils')
+
+function verifyOwnerPin(db, pin) {
+  const owners = db.prepare(`SELECT * FROM users WHERE role = 'owner' AND active = 1`).all()
+  for (const owner of owners) {
+    if (verifyPin(pin, owner.pin)) {
+      if (!isHashed(owner.pin)) {
+        db.prepare('UPDATE users SET pin = ? WHERE id = ?').run(hashPin(pin), owner.id)
+      }
+      return owner
+    }
+  }
+  return null
+}
 
 const transactionRepository = {
   create({ items, subtotal, discount = 0, discountType = 'nominal', total, payment, change,
@@ -72,7 +86,7 @@ const transactionRepository = {
 
   voidTransaction(txId, pin) {
     const db = getDb()
-    const owner = db.prepare(`SELECT * FROM users WHERE pin = ? AND role = 'owner' AND active = 1`).get(pin)
+    const owner = verifyOwnerPin(db, pin)
     if (!owner) throw new Error('PIN salah atau bukan owner')
 
     const tx = this.findById(txId)

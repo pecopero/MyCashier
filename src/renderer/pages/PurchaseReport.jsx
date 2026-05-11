@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { formatRupiah, formatDate } from '../utils/format'
+import { SkeletonTable, SkeletonCards } from '../components/Skeleton'
 
 const today = new Date().toLocaleDateString('en-CA')
 const firstOfMonth = today.slice(0, 8) + '01'
@@ -25,11 +26,14 @@ export default function PurchaseReport() {
 
   const loadReport = async () => {
     setLoading(true)
-    const result = await window.electronAPI.getPurchaseReport({
-      startDate, endDate, supplierId: supplierId ? parseInt(supplierId) : null
-    })
-    setData(result)
-    setLoading(false)
+    try {
+      const result = await window.electronAPI.getPurchaseReport({
+        startDate, endDate, supplierId: supplierId ? parseInt(supplierId) : null
+      })
+      setData(result)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleFilter = (e) => {
@@ -71,7 +75,12 @@ export default function PurchaseReport() {
         </button>
       </form>
 
-      {loading && <p className="text-center text-gray-400">Memuat...</p>}
+      {loading && (
+        <>
+          <SkeletonCards count={4} />
+          <div className="mt-6"><SkeletonTable rows={8} cols={5} /></div>
+        </>
+      )}
 
       {data && !loading && (
         <>

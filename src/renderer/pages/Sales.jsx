@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { formatRupiah, formatDate } from '../utils/format'
 import ReceiptPreviewModal from '../components/ReceiptPreviewModal'
+import { SkeletonTable } from '../components/Skeleton'
+import { usePagination } from '../hooks/usePagination'
 
 function today() { return new Date().toLocaleDateString('en-CA') }
 
@@ -182,13 +184,18 @@ export default function Sales() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const data = await window.electronAPI.getSalesReport({ startDate, endDate })
-    setTransactions(data.transactions)
-    setSummary(data.summary)
-    setLoading(false)
+    try {
+      const data = await window.electronAPI.getSalesReport({ startDate, endDate })
+      setTransactions(data?.transactions || [])
+      setSummary(data?.summary || {})
+    } finally {
+      setLoading(false)
+    }
   }, [startDate, endDate])
 
   useEffect(() => { load() }, [])
+
+  const { paged: pagedTx, Pager: TxPager } = usePagination(transactions, 50)
 
   const setPreset = (days) => {
     const end = new Date()
@@ -273,8 +280,9 @@ export default function Sales() {
         </div>
 
         {loading ? (
-          <p className="text-center text-gray-400 py-12">Memuat...</p>
+          <SkeletonTable rows={10} cols={8} />
         ) : (
+          <>
           <table className="w-full text-sm">
             <thead className="bg-gray-50">
               <tr>
@@ -284,7 +292,7 @@ export default function Sales() {
               </tr>
             </thead>
             <tbody>
-              {transactions.map((t, i) => (
+              {pagedTx.map((t, i) => (
                 <tr key={t.id} onClick={() => setSelectedTxId(t.id)}
                   className={`border-t border-gray-100 hover:bg-blue-50 cursor-pointer transition-colors ${t.is_void ? 'opacity-50 bg-red-50' : ''}`}>
                   <td className="px-4 py-3 text-gray-400 text-xs">
@@ -309,6 +317,8 @@ export default function Sales() {
               )}
             </tbody>
           </table>
+          <TxPager />
+          </>
         )}
       </div>
 

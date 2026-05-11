@@ -128,21 +128,29 @@ export default function Reports() {
 
   const loadSales = async () => {
     setLoading(true)
-    const data = await window.electronAPI.getSalesReport({ startDate, endDate })
-    setSalesData(data)
-    setLoading(false)
+    try {
+      const data = await window.electronAPI.getSalesReport({ startDate, endDate })
+      setSalesData(data)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const loadPL = async () => {
     setLoading(true)
-    const data = await window.electronAPI.getProfitLossReport({ startDate, endDate })
-    setPlData(data)
-    setLoading(false)
+    try {
+      const data = await window.electronAPI.getProfitLossReport({ startDate, endDate })
+      setPlData(data)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const loadLowStock = async () => {
-    const data = await window.electronAPI.getLowStockReport()
-    setLowStock(data)
+    try {
+      const data = await window.electronAPI.getLowStockReport()
+      setLowStock(data || [])
+    } catch (_) {}
   }
 
   useEffect(() => { loadSales(); loadLowStock() }, [])

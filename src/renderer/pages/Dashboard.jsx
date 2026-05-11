@@ -69,18 +69,24 @@ export default function Dashboard() {
 
   const load = async () => {
     setLoading(true)
-    const [result, hutang, piutang, settings] = await Promise.all([
-      window.electronAPI.getDashboardData(),
-      window.electronAPI.getOverduePurchases().then(o =>
-        window.electronAPI.getPurchasesDueSoon().then(s => [...o, ...s])),
-      window.electronAPI.getReceivablesDueSoon(),
-      window.electronAPI.getSettings(),
-    ])
-    setData(result)
-    setChartData(fillChartData(result.chart, 7))
-    setDueSoon({ hutang, piutang })
-    setDailyTarget(parseFloat(settings.daily_target) || 0)
-    setLoading(false)
+    try {
+      const [result, overdue, dueSoonH, piutang, settings] = await Promise.all([
+        window.electronAPI.getDashboardData(),
+        window.electronAPI.getOverduePurchases().catch(() => []),
+        window.electronAPI.getPurchasesDueSoon().catch(() => []),
+        window.electronAPI.getReceivablesDueSoon().catch(() => []),
+        window.electronAPI.getSettings().catch(() => ({})),
+      ])
+      if (result) {
+        setData(result)
+        setChartData(fillChartData(result.chart, 7))
+      }
+      setDueSoon({ hutang: [...(overdue || []), ...(dueSoonH || [])], piutang: piutang || [] })
+      setDailyTarget(parseFloat(settings?.daily_target) || 0)
+    } catch (_) {}
+    finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { load() }, [])
@@ -100,6 +106,15 @@ export default function Dashboard() {
     <div className="flex items-center justify-center h-full text-gray-400">Memuat dashboard...</div>
   )
 
+  if (!data) return (
+    <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-3">
+      <p className="text-lg font-medium">Gagal memuat data dashboard</p>
+      <button onClick={load} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">
+        Coba Lagi
+      </button>
+    </div>
+  )
+
   const { today, yesterday, hourly, top5, lowStock, recentTx } = data
   const alertCount = dueSoon.hutang.length + dueSoon.piutang.length
 
@@ -115,8 +130,15 @@ export default function Dashboard() {
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-xl font-bold text-gray-800">Dashboard</h1>
-        <button onClick={load} className="text-sm text-blue-600 hover:underline">Refresh</button>
+        <div>
+          <h1 className="text-xl font-bold text-gray-800">Dashboard</h1>
+          <p className="text-xs text-gray-400 mt-0.5">
+            {new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+          </p>
+        </div>
+        <button onClick={load} className="px-3 py-1.5 text-sm bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors font-medium">
+          ↻ Refresh
+        </button>
       </div>
 
       {/* Alert jatuh tempo */}
@@ -165,11 +187,14 @@ export default function Dashboard() {
             sub={txPct ? `${txPct.up ? '↑' : '↓'} ${txPct.diff}% vs kemarin` : 'transaksi selesai'}
             onClick={() => navigate('/sales')} />
           <StatCard label="Omzet" value={formatRupiah(today.revenue)} color="blue"
-            sub={revPct ? `${revPct.up ? '↑' : '↓'} ${revPct.diff}% vs kemarin` : 'total penjualan'} />
+            sub={revPct ? `${revPct.up ? '↑' : '↓'} ${revPct.diff}% vs kemarin` : 'total penjualan'}
+            onClick={() => navigate('/sales')} />
           <StatCard label="Modal (HPP)" value={formatRupiah(today.cost)} color="orange"
-            sub="harga pokok terjual" />
+            sub="harga pokok terjual"
+            onClick={() => navigate('/reports')} />
           <StatCard label="Laba Kotor" value={formatRupiah(today.profit)} color="green"
-            sub={prfPct ? `${prfPct.up ? '↑' : '↓'} ${prfPct.diff}% vs kemarin` : today.revenue > 0 ? `Margin ${(today.profit / today.revenue * 100).toFixed(1)}%` : 'laba hari ini'} />
+            sub={prfPct ? `${prfPct.up ? '↑' : '↓'} ${prfPct.diff}% vs kemarin` : today.revenue > 0 ? `Margin ${(today.profit / today.revenue * 100).toFixed(1)}%` : 'laba hari ini'}
+            onClick={() => navigate('/reports')} />
         </div>
       </div>
 
@@ -332,7 +357,8 @@ export default function Dashboard() {
             </thead>
             <tbody>
               {recentTx.map(t => (
-                <tr key={t.id} className="border-t border-gray-100 hover:bg-gray-50">
+                <tr key={t.id} onClick={() => navigate('/sales')}
+                  className="border-t border-gray-100 hover:bg-blue-50 cursor-pointer transition-colors">
                   <td className="px-5 py-3 text-gray-400 text-xs">{formatDate(t.created_at)}</td>
                   <td className="px-5 py-3 font-medium">{formatRupiah(t.total)}</td>
                   <td className="px-5 py-3">{formatRupiah(t.payment)}</td>

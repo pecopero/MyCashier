@@ -16,9 +16,12 @@ export default function CashFlow() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const result = await window.electronAPI.getCashFlowReport({ startDate, endDate })
-    setData(result)
-    setLoading(false)
+    try {
+      const result = await window.electronAPI.getCashFlowReport({ startDate, endDate })
+      setData(result)
+    } finally {
+      setLoading(false)
+    }
   }, [startDate, endDate])
 
   useEffect(() => { load() }, [])

@@ -119,10 +119,13 @@ export default function Promos() {
 
   const load = async () => {
     setLoading(true)
-    const [p, pr] = await Promise.all([window.electronAPI.getPromos(), window.electronAPI.getProducts()])
-    setPromos(p)
-    setProducts(pr)
-    setLoading(false)
+    try {
+      const [p, pr] = await Promise.all([window.electronAPI.getPromos(), window.electronAPI.getProducts()])
+      setPromos(p || [])
+      setProducts(pr || [])
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { load() }, [])

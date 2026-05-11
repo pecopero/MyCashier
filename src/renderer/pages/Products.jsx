@@ -3,6 +3,9 @@ import { useProducts } from '../hooks/useProducts'
 import { useCategories } from '../hooks/useCategories'
 import CategorySelect from '../components/CategorySelect'
 import { formatRupiah } from '../utils/format'
+import { useSortable } from '../hooks/useSortable'
+import { usePagination } from '../hooks/usePagination'
+import { SkeletonTable } from '../components/Skeleton'
 
 function ImportModal({ onClose, onDone }) {
   const [rows, setRows] = useState(null)
@@ -11,17 +14,23 @@ function ImportModal({ onClose, onDone }) {
 
   const handlePreview = async () => {
     setLoading(true)
-    const res = await window.electronAPI.importPreviewProducts()
-    setLoading(false)
-    if (!res.canceled) setRows(res.rows)
+    try {
+      const res = await window.electronAPI.importPreviewProducts()
+      if (!res.canceled) setRows(res.rows)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleExecute = async () => {
     setLoading(true)
-    const res = await window.electronAPI.importExecuteProducts(rows)
-    setResult(res)
-    setLoading(false)
-    onDone()
+    try {
+      const res = await window.electronAPI.importExecuteProducts(rows)
+      setResult(res)
+      onDone()
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -266,6 +275,9 @@ export default function Products() {
     return true
   })
 
+  const { sorted: sortedProducts, Th } = useSortable(filtered, 'name')
+  const { paged: pagedProducts, Pager } = usePagination(sortedProducts, 50)
+
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
@@ -446,19 +458,25 @@ export default function Products() {
       )}
 
       {loading ? (
-        <p className="text-gray-400 text-center mt-12">Memuat...</p>
+        <SkeletonTable rows={8} cols={8} />
       ) : (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                {['Nama', 'HPP', 'Harga Jual', 'Margin', 'Stok', 'Satuan', 'Kategori', 'Aksi'].map(h => (
-                  <th key={h} className="text-left px-4 py-3 font-semibold text-gray-600">{h}</th>
-                ))}
+                <Th col="name"       className="text-left px-4 py-3 font-semibold text-gray-600 text-xs">Nama</Th>
+                <Th col="cost_price" className="text-left px-4 py-3 font-semibold text-gray-600 text-xs">HPP</Th>
+                <Th col="price"      className="text-left px-4 py-3 font-semibold text-gray-600 text-xs">Harga Jual</Th>
+                <th className="text-left px-4 py-3 font-semibold text-gray-600 text-xs">Margin</th>
+                <Th col="stock"      className="text-left px-4 py-3 font-semibold text-gray-600 text-xs">Stok</Th>
+                <th className="text-left px-4 py-3 font-semibold text-gray-600 text-xs">Satuan</th>
+                <Th col="category"   className="text-left px-4 py-3 font-semibold text-gray-600 text-xs">Kategori</Th>
+                <th className="text-left px-4 py-3 font-semibold text-gray-600 text-xs">Aksi</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map(p => (
+              {pagedProducts.map(p => (
                 <tr key={p.id} className={`border-b border-gray-100 hover:bg-gray-50 ${p.stock <= (p.min_stock ?? 5) ? 'bg-red-50' : ''}`}>
                   <td className="px-4 py-3 font-medium">{p.name}</td>
                   <td className="px-4 py-3 text-gray-500">{p.cost_price > 0 ? formatRupiah(p.cost_price) : '—'}</td>
@@ -484,6 +502,8 @@ export default function Products() {
               )}
             </tbody>
           </table>
+          </div>
+          <Pager />
         </div>
       )}
     </div>

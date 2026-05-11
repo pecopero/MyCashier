@@ -183,3 +183,102 @@ ipcMain.handle('export:profitLoss', async (_, { startDate, endDate }) => {
 
   return saveExcel(wb, `laporan-labarugi-${startDate}-sd-${endDate}.xlsx`)
 })
+
+ipcMain.handle('export:productProfit', async (_, { startDate, endDate }) => {
+  const db = getDb()
+
+  const rows = db.prepare(`
+    SELECT p.name AS product_name,
+           COALESCE(SUM(ti.quantity * ti.conversion), 0)                    AS total_qty,
+           COALESCE(SUM(ti.subtotal), 0)                                     AS total_revenue,
+           COALESCE(SUM(ti.cost_price * ti.quantity * ti.conversion), 0)    AS total_cost
+    FROM transaction_items ti
+    JOIN transactions t ON t.id = ti.transaction_id
+    JOIN products p ON p.id = ti.product_id
+    WHERE date(t.created_at,'localtime') BETWEEN ? AND ?
+      AND (t.is_void = 0 OR t.is_void IS NULL)
+    GROUP BY p.id, p.name
+    ORDER BY total_revenue DESC
+  `).all(startDate, endDate).map(r => ({
+    'Produk':      r.product_name,
+    'Qty Terjual': r.total_qty,
+    'Omzet':       r.total_revenue,
+    'HPP':         r.total_cost,
+    'Laba Kotor':  r.total_revenue - r.total_cost,
+    'Margin %':    r.total_revenue > 0
+      ? +((r.total_revenue - r.total_cost) / r.total_revenue * 100).toFixed(2)
+      : 0,
+  }))
+
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Laba per Produk')
+  return saveExcel(wb, `laba-produk-${startDate}-sd-${endDate}.xlsx`)
+})
+
+ipcMain.handle('export:priceHistory', async (_, { startDate, endDate }) => {
+  const db = getDb()
+
+  const rows = db.prepare(`
+    SELECT product_name, old_price, new_price, old_cost_price, new_cost_price,
+           changed_by, datetime(changed_at,'localtime') AS changed_at
+    FROM price_history
+    WHERE date(changed_at,'localtime') BETWEEN ? AND ?
+    ORDER BY changed_at DESC
+  `).all(startDate, endDate).map(r => ({
+    'Produk':         r.product_name,
+    'Harga Jual Lama': r.old_price,
+    'Harga Jual Baru': r.new_price,
+    'HPP Lama':        r.old_cost_price,
+    'HPP Baru':        r.new_cost_price,
+    'Diubah Oleh':     r.changed_by || 'Sistem',
+    'Tanggal':         r.changed_at,
+  }))
+
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Riwayat Harga')
+  return saveExcel(wb, `riwayat-harga-${startDate}-sd-${endDate}.xlsx`)
+})
+
+ipcMain.handle('export:cashier', async (_, { startDate, endDate }) => {
+  const db = getDb()
+
+  const byCashier = db.prepare(`
+    SELECT COALESCE(user_name,'(tidak diketahui)') AS kasir,
+           COUNT(*) AS total_transaksi,
+           COALESCE(SUM(total),0) AS total_omzet,
+           COALESCE(SUM(discount),0) AS total_diskon
+    FROM transactions
+    WHERE date(created_at,'localtime') BETWEEN ? AND ?
+      AND (is_void = 0 OR is_void IS NULL)
+    GROUP BY user_name
+    ORDER BY total_omzet DESC
+  `).all(startDate, endDate)
+
+  const byShift = db.prepare(`
+    SELECT COALESCE(user_name,'(tidak diketahui)') AS kasir,
+           COUNT(DISTINCT shift_id) AS total_shift,
+           COUNT(*) AS total_transaksi,
+           COALESCE(SUM(total),0) AS total_omzet
+    FROM transactions
+    WHERE date(created_at,'localtime') BETWEEN ? AND ?
+      AND (is_void = 0 OR is_void IS NULL)
+    GROUP BY user_name
+    ORDER BY total_omzet DESC
+  `).all(startDate, endDate)
+
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(byCashier.map(r => ({
+    'Kasir':           r.kasir,
+    'Total Transaksi': r.total_transaksi,
+    'Omzet':           r.total_omzet,
+    'Total Diskon':    r.total_diskon,
+  }))), 'Ringkasan')
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(byShift.map(r => ({
+    'Kasir':           r.kasir,
+    'Jumlah Shift':    r.total_shift,
+    'Total Transaksi': r.total_transaksi,
+    'Total Penjualan': r.total_omzet,
+  }))), 'Per Shift')
+
+  return saveExcel(wb, `laporan-kasir-${startDate}-sd-${endDate}.xlsx`)
+})

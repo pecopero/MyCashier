@@ -6,9 +6,14 @@ export function usePurchases() {
 
   const load = useCallback(async (filters = {}) => {
     setLoading(true)
-    const data = await window.electronAPI.getPurchases(filters)
-    setPurchases(data)
-    setLoading(false)
+    try {
+      const data = await window.electronAPI.getPurchases(filters)
+      setPurchases(data || [])
+    } catch (_) {
+      setPurchases([])
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   const createPurchase = async (data) => {

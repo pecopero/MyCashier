@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { formatRupiah } from '../utils/format'
+import { SkeletonTable } from '../components/Skeleton'
 
 const today = new Date().toLocaleDateString('en-CA')
 const firstOfMonth = today.slice(0, 8) + '01'
@@ -15,9 +16,12 @@ export default function CashierReport() {
 
   const load = async () => {
     setLoading(true)
-    const result = await window.electronAPI.getCashierReport({ startDate, endDate })
-    setData(result)
-    setLoading(false)
+    try {
+      const result = await window.electronAPI.getCashierReport({ startDate, endDate })
+      setData(result)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { load() }, [])
@@ -44,9 +48,13 @@ export default function CashierReport() {
         <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
           Tampilkan
         </button>
+        <button type="button" onClick={() => window.electronAPI.exportCashierReport({ startDate, endDate })}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 border border-green-200 rounded-lg text-sm font-medium hover:bg-green-100 ml-auto">
+          ↓ Export Excel
+        </button>
       </form>
 
-      {loading && <p className="text-center text-gray-400">Memuat...</p>}
+      {loading && <SkeletonTable rows={5} cols={4} />}
 
       {data && !loading && (
         <>

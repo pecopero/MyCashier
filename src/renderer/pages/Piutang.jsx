@@ -111,11 +111,16 @@ export default function Piutang() {
 
   const load = async () => {
     setLoading(true)
-    const data = filter === 'all'
-      ? await window.electronAPI.getReceivables()
-      : await window.electronAPI.getUnpaidReceivables()
-    setList(data)
-    setLoading(false)
+    try {
+      const data = filter === 'all'
+        ? await window.electronAPI.getReceivables()
+        : await window.electronAPI.getUnpaidReceivables()
+      setList(data || [])
+    } catch (_) {
+      setList([])
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { load() }, [filter])

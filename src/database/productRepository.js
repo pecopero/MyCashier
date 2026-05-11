@@ -41,10 +41,16 @@ const productRepository = {
   },
 
   decrementStock(id, quantity) {
-    return getDb().prepare(`
+    const db = getDb()
+    const result = db.prepare(`
       UPDATE products SET stock = ROUND(stock - ?, 6), updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `).run(quantity, id)
+      WHERE id = ? AND stock >= ?
+    `).run(quantity, id, quantity)
+    if (result.changes === 0) {
+      const p = db.prepare('SELECT name, stock FROM products WHERE id = ?').get(id)
+      throw new Error(`Stok "${p?.name ?? 'produk'}" tidak mencukupi (sisa: ${p?.stock ?? 0})`)
+    }
+    return result
   },
 
   incrementStock(id, quantity, newCostPrice = null) {

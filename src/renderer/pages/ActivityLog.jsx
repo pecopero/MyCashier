@@ -19,9 +19,12 @@ export default function ActivityLog() {
 
   const load = async () => {
     setLoading(true)
-    const data = await window.electronAPI.getActivityLog({ startDate, endDate })
-    setLogs(data)
-    setLoading(false)
+    try {
+      const data = await window.electronAPI.getActivityLog({ startDate, endDate })
+      setLogs(data || [])
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { load() }, [])

@@ -52,8 +52,11 @@ export default function Customers() {
 
   const load = async (q = '') => {
     setLoading(true)
-    setCustomers(await window.electronAPI.getCustomers(q))
-    setLoading(false)
+    try {
+      setCustomers((await window.electronAPI.getCustomers(q)) || [])
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { load() }, [])

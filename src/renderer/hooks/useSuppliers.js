@@ -4,8 +4,10 @@ export function useSuppliers() {
   const [suppliers, setSuppliers] = useState([])
 
   const load = useCallback(async () => {
-    const data = await window.electronAPI.getSuppliers()
-    setSuppliers(data)
+    try {
+      const data = await window.electronAPI.getSuppliers()
+      setSuppliers(data || [])
+    } catch (_) {}
   }, [])
 
   useEffect(() => { load() }, [load])

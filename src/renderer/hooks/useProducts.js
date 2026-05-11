@@ -3,12 +3,19 @@ import { useState, useEffect, useCallback } from 'react'
 export function useProducts() {
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true)
-    const data = await window.electronAPI.getProducts()
-    setProducts(data)
-    setLoading(false)
+    setError(null)
+    try {
+      const data = await window.electronAPI.getProducts()
+      setProducts(data || [])
+    } catch (e) {
+      setError(e.message || 'Gagal memuat produk')
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   useEffect(() => { load() }, [load])
@@ -30,5 +37,5 @@ export function useProducts() {
     setProducts(prev => prev.filter(p => p.id !== id))
   }
 
-  return { products, loading, createProduct, updateProduct, deleteProduct, reload: load }
+  return { products, loading, error, createProduct, updateProduct, deleteProduct, reload: load }
 }

@@ -1,4 +1,5 @@
 const { getDb } = require('./db')
+const { hashPin, verifyPin, isHashed } = require('./pinUtils')
 
 const userRepository = {
   findAll() {
@@ -10,20 +11,28 @@ const userRepository = {
   },
 
   login(name, pin) {
-    return getDb().prepare(
-      'SELECT id, name, role FROM users WHERE name = ? AND pin = ? AND active = 1'
-    ).get(name, pin) || null
+    const db = getDb()
+    const user = db.prepare('SELECT * FROM users WHERE name = ? AND active = 1').get(name)
+    if (!user || !verifyPin(pin, user.pin)) return null
+    if (!isHashed(user.pin)) {
+      db.prepare('UPDATE users SET pin = ? WHERE id = ?').run(hashPin(pin), user.id)
+    }
+    return { id: user.id, name: user.name, role: user.role }
   },
 
   loginById(id, pin) {
-    return getDb().prepare(
-      'SELECT id, name, role FROM users WHERE id = ? AND pin = ? AND active = 1'
-    ).get(id, pin) || null
+    const db = getDb()
+    const user = db.prepare('SELECT * FROM users WHERE id = ? AND active = 1').get(id)
+    if (!user || !verifyPin(pin, user.pin)) return null
+    if (!isHashed(user.pin)) {
+      db.prepare('UPDATE users SET pin = ? WHERE id = ?').run(hashPin(pin), user.id)
+    }
+    return { id: user.id, name: user.name, role: user.role }
   },
 
   create({ name, pin, role = 'kasir' }) {
     const db = getDb()
-    const result = db.prepare('INSERT INTO users (name, pin, role) VALUES (?, ?, ?)').run(name, pin, role)
+    const result = db.prepare('INSERT INTO users (name, pin, role) VALUES (?, ?, ?)').run(name, hashPin(pin), role)
     return this.findById(result.lastInsertRowid)
   },
 
@@ -31,7 +40,7 @@ const userRepository = {
     const db = getDb()
     if (pin) {
       db.prepare('UPDATE users SET name = ?, pin = ?, role = ?, active = ? WHERE id = ?')
-        .run(name, pin, role, active ?? 1, id)
+        .run(name, hashPin(pin), role, active ?? 1, id)
     } else {
       db.prepare('UPDATE users SET name = ?, role = ?, active = ? WHERE id = ?')
         .run(name, role, active ?? 1, id)

@@ -49,6 +49,17 @@ db.pragma('foreign_keys = ON')
   `ALTER TABLE transactions ADD COLUMN shift_id INTEGER`,
   `ALTER TABLE transactions ADD COLUMN user_id INTEGER`,
   `ALTER TABLE transactions ADD COLUMN user_name TEXT`,
+  `CREATE TABLE IF NOT EXISTS price_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id INTEGER NOT NULL,
+    product_name TEXT NOT NULL,
+    old_price REAL NOT NULL DEFAULT 0,
+    new_price REAL NOT NULL DEFAULT 0,
+    old_cost_price REAL NOT NULL DEFAULT 0,
+    new_cost_price REAL NOT NULL DEFAULT 0,
+    changed_by TEXT,
+    changed_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+  )`,
 ].forEach(sql => { try { db.exec(sql) } catch {} })
 
 // Cek sudah di-seed atau belum
@@ -108,6 +119,7 @@ if (process.argv.includes('--force')) {
     DELETE FROM products WHERE id > 0;
     DELETE FROM categories WHERE name NOT IN ('Umum','Makanan','Minuman');
     DELETE FROM users WHERE id > 1;
+    DELETE FROM price_history;
     DELETE FROM settings WHERE key = 'dummy_seeded';
   `)
 }
@@ -639,6 +651,89 @@ seedLog()
 console.log(`✓ 300 activity log`)
 
 // ═══════════════════════════════════════════════════════════════════════════
+// 15. RIWAYAT PERUBAHAN HARGA
+// ═══════════════════════════════════════════════════════════════════════════
+const insPriceHistory = db.prepare(`
+  INSERT INTO price_history (product_id,product_name,old_price,new_price,old_cost_price,new_cost_price,changed_by,changed_at)
+  VALUES (?,?,?,?,?,?,?,?)
+`)
+
+// Simulasi ~30 perubahan harga selama 90 hari terakhir
+const PRICE_CHANGE_SCENARIOS = [
+  // produk yang sering berubah harganya (bahan pokok)
+  { name: 'Tepung Terigu Cakra Kembar 1kg',  changes: [
+    { daysBack: 85, oldP: 13000, newP: 14000, oldC: 10500, newC: 11500 },
+    { daysBack: 42, oldP: 14000, newP: 13500, oldC: 11500, newC: 11000 },
+    { daysBack: 12, oldP: 13500, newP: 14000, oldC: 11000, newC: 11500 },
+  ]},
+  { name: 'Gula Pasir 1kg', changes: [
+    { daysBack: 75, oldP: 15000, newP: 16000, oldC: 12500, newC: 13500 },
+    { daysBack: 30, oldP: 16000, newP: 16500, oldC: 13500, newC: 14000 },
+  ]},
+  { name: 'Minyak Goreng Bimoli 2L', changes: [
+    { daysBack: 88, oldP: 32000, newP: 35000, oldC: 27000, newC: 30000 },
+    { daysBack: 60, oldP: 35000, newP: 33000, oldC: 30000, newC: 28500 },
+    { daysBack: 20, oldP: 33000, newP: 35000, oldC: 28500, newC: 30000 },
+  ]},
+  { name: 'Margarin Blueband 200g', changes: [
+    { daysBack: 70, oldP: 14500, newP: 16000, oldC: 12000, newC: 13000 },
+    { daysBack: 25, oldP: 16000, newP: 15500, oldC: 13000, newC: 12500 },
+  ]},
+  { name: 'Susu Kental Manis Frisian 370g', changes: [
+    { daysBack: 80, oldP: 17000, newP: 18000, oldC: 13500, newC: 14500 },
+  ]},
+  { name: 'Coklat DCC Compound 1kg', changes: [
+    { daysBack: 65, oldP: 60000, newP: 65000, oldC: 50000, newC: 55000 },
+    { daysBack: 18, oldP: 65000, newP: 62000, oldC: 55000, newC: 52000 },
+  ]},
+  { name: 'Ragi Instan Fermipan 11g', changes: [
+    { daysBack: 55, oldP: 4000, newP: 4500, oldC: 3000, newC: 3200 },
+  ]},
+  { name: 'Cream Cheese Anchor 250g', changes: [
+    { daysBack: 50, oldP: 70000, newP: 75000, oldC: 58000, newC: 63000 },
+  ]},
+  { name: 'Whipping Cream Anchor 1L', changes: [
+    { daysBack: 45, oldP: 88000, newP: 95000, oldC: 74000, newC: 80000 },
+  ]},
+  { name: 'Keju Cheddar Kraft 165g', changes: [
+    { daysBack: 72, oldP: 38000, newP: 42000, oldC: 32000, newC: 35000 },
+    { daysBack: 15, oldP: 42000, newP: 40000, oldC: 35000, newC: 33000 },
+  ]},
+  { name: 'Plastik OPP 20x30cm 1pak', changes: [
+    { daysBack: 40, oldP: 13500, newP: 15000, oldC: 10500, newC: 11500 },
+  ]},
+  { name: 'Tepung Terigu Segitiga Biru 1kg', changes: [
+    { daysBack: 78, oldP: 12000, newP: 13000, oldC: 9500, newC: 10500 },
+  ]},
+  { name: 'Mentega Anchor 227g', changes: [
+    { daysBack: 33, oldP: 46000, newP: 49000, oldC: 39000, newC: 42000 },
+  ]},
+  { name: 'Cocoa Powder Van Houten 200g', changes: [
+    { daysBack: 58, oldP: 42000, newP: 45000, oldC: 34000, newC: 37000 },
+  ]},
+]
+
+const insPH = db.transaction(() => {
+  PRICE_CHANGE_SCENARIOS.forEach(({ name, changes }) => {
+    const prod = PRODUCTS.find(p => p.name === name)
+    if (!prod) return
+    changes.forEach(({ daysBack, oldP, newP, oldC, newC }) => {
+      const user = pick(ALL_USERS)
+      insPriceHistory.run(
+        prod.id, prod.name,
+        oldP, newP, oldC, newC,
+        user.name,
+        localTs(daysBack, rand(9, 17))
+      )
+    })
+  })
+})
+insPH()
+
+const phCount = PRICE_CHANGE_SCENARIOS.reduce((s, x) => s + x.changes.length, 0)
+console.log(`✓ ${phCount} riwayat perubahan harga`)
+
+// ═══════════════════════════════════════════════════════════════════════════
 // SELESAI
 // ═══════════════════════════════════════════════════════════════════════════
 db.prepare("INSERT OR REPLACE INTO settings (key,value) VALUES ('dummy_seeded','1')").run()
@@ -657,6 +752,7 @@ console.log(`
 ║  Tutup Kas     : 89 hari                             ║
 ║  Stock Opname  : 4 kali                              ║
 ║  Activity Log  : 300 entri                           ║
+║  Riwayat Harga : ~30 perubahan harga                 ║
 ║  Periode data  : 90 hari terakhir                    ║
 ╠══════════════════════════════════════════════════════╣
 ║  Restart app agar data tampil!                       ║

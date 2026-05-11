@@ -137,9 +137,12 @@ export default function Returns() {
 
   const load = async () => {
     setLoading(true)
-    const data = await window.electronAPI.getReturns()
-    setReturns(data)
-    setLoading(false)
+    try {
+      const data = await window.electronAPI.getReturns()
+      setReturns(data || [])
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { load() }, [])

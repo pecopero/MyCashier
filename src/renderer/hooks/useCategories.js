@@ -4,8 +4,10 @@ export function useCategories() {
   const [categories, setCategories] = useState([])
 
   const load = useCallback(async () => {
-    const data = await window.electronAPI.getCategories()
-    setCategories(data)
+    try {
+      const data = await window.electronAPI.getCategories()
+      setCategories(data || [])
+    } catch (_) {}
   }, [])
 
   useEffect(() => { load() }, [load])

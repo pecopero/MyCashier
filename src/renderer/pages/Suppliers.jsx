@@ -45,8 +45,11 @@ export default function Suppliers() {
 
   const load = async () => {
     setLoading(true)
-    setSuppliers(await window.electronAPI.getSuppliers())
-    setLoading(false)
+    try {
+      setSuppliers((await window.electronAPI.getSuppliers()) || [])
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { load() }, [])

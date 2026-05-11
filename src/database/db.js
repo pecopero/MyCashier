@@ -122,6 +122,30 @@ function initSchema() {
       FOREIGN KEY (receivable_id) REFERENCES receivables(id)
     );
 
+    CREATE TABLE IF NOT EXISTS monthly_closings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      year INTEGER NOT NULL,
+      month INTEGER NOT NULL,
+      status TEXT NOT NULL DEFAULT 'open',
+      revenue REAL NOT NULL DEFAULT 0,
+      cost REAL NOT NULL DEFAULT 0,
+      gross_profit REAL NOT NULL DEFAULT 0,
+      total_expenses REAL NOT NULL DEFAULT 0,
+      net_profit REAL NOT NULL DEFAULT 0,
+      total_purchases REAL NOT NULL DEFAULT 0,
+      cash_purchases REAL NOT NULL DEFAULT 0,
+      purchase_payments REAL NOT NULL DEFAULT 0,
+      receivables_collected REAL NOT NULL DEFAULT 0,
+      cash_in REAL NOT NULL DEFAULT 0,
+      cash_out REAL NOT NULL DEFAULT 0,
+      transaction_count INTEGER NOT NULL DEFAULT 0,
+      notes TEXT DEFAULT '',
+      closed_at DATETIME,
+      closed_by TEXT DEFAULT '',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(year, month)
+    );
+
     CREATE TABLE IF NOT EXISTS cash_closings (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       date TEXT NOT NULL UNIQUE,
@@ -310,6 +334,17 @@ function migrate() {
     `ALTER TABLE products ADD COLUMN wholesale_price REAL NOT NULL DEFAULT 0`,
     `ALTER TABLE products ADD COLUMN wholesale_min_qty REAL NOT NULL DEFAULT 0`,
     `ALTER TABLE transactions ADD COLUMN is_void INTEGER NOT NULL DEFAULT 0`,
+    `CREATE TABLE IF NOT EXISTS price_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      product_id INTEGER NOT NULL,
+      product_name TEXT NOT NULL,
+      old_price REAL NOT NULL DEFAULT 0,
+      new_price REAL NOT NULL DEFAULT 0,
+      old_cost_price REAL NOT NULL DEFAULT 0,
+      new_cost_price REAL NOT NULL DEFAULT 0,
+      changed_by TEXT,
+      changed_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+    )`,
   ]
   for (const sql of migrations) {
     try { db.exec(sql) } catch { /* kolom sudah ada, skip */ }

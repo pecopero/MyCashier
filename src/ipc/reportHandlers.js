@@ -239,6 +239,56 @@ ipcMain.handle('reports:stockValue', () => {
   `).all()
 })
 
+ipcMain.handle('reports:profitByProduct', (_, { startDate, endDate }) => {
+  const db = getDb()
+  return db.prepare(`
+    SELECT
+      ti.product_name,
+      SUM(ti.quantity)                                        AS total_qty,
+      SUM(ti.subtotal)                                        AS total_revenue,
+      SUM(ti.cost_price * ti.quantity)                        AS total_cost,
+      SUM(ti.subtotal) - SUM(ti.cost_price * ti.quantity)     AS gross_profit,
+      CASE WHEN SUM(ti.subtotal) > 0
+        THEN ROUND((SUM(ti.subtotal) - SUM(ti.cost_price * ti.quantity)) / SUM(ti.subtotal) * 100, 1)
+        ELSE 0 END                                            AS margin_pct
+    FROM transaction_items ti
+    JOIN transactions t ON t.id = ti.transaction_id
+    WHERE date(t.created_at, 'localtime') BETWEEN ? AND ?
+      AND (t.is_void = 0 OR t.is_void IS NULL)
+    GROUP BY ti.product_name
+    ORDER BY gross_profit DESC
+  `).all(startDate, endDate)
+})
+
+ipcMain.handle('reports:topProducts', (_, { period }) => {
+  const db = getDb()
+  const today = new Date().toLocaleDateString('en-CA')
+  let startDate
+  if (period === 'daily') {
+    startDate = today
+  } else if (period === 'monthly') {
+    startDate = today.slice(0, 8) + '01'
+  } else if (period === 'yearly') {
+    startDate = today.slice(0, 5) + '01-01'
+  } else {
+    startDate = '2000-01-01' // all time
+  }
+  return db.prepare(`
+    SELECT
+      ti.product_name,
+      SUM(ti.quantity)   AS total_qty,
+      SUM(ti.subtotal)   AS total_revenue,
+      COUNT(DISTINCT t.id) AS total_transactions
+    FROM transaction_items ti
+    JOIN transactions t ON t.id = ti.transaction_id
+    WHERE date(t.created_at, 'localtime') >= ?
+      AND (t.is_void = 0 OR t.is_void IS NULL)
+    GROUP BY ti.product_name
+    ORDER BY total_qty DESC
+    LIMIT 10
+  `).all(startDate)
+})
+
 ipcMain.handle('reports:byCashier', (_, { startDate, endDate }) => {
   const db = getDb()
 

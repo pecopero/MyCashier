@@ -11,7 +11,7 @@ export default function Login() {
   const containerRef = useRef(null)
 
   useEffect(() => {
-    window.electronAPI.getUsers().then(setUsers)
+    window.electronAPI.getUsers().then(data => setUsers(data || [])).catch(() => {})
   }, [])
 
   // Auto-focus agar keyboard langsung aktif saat user dipilih
@@ -36,13 +36,19 @@ export default function Login() {
   const handleLogin = async () => {
     if (!pin) return
     setLoading(true)
-    const user = await window.electronAPI.loginUser(selected.id, pin)
-    setLoading(false)
-    if (user) {
-      login(user)
-    } else {
-      setError('PIN salah. Coba lagi.')
+    try {
+      const user = await window.electronAPI.loginUser(selected.id, pin)
+      if (user) {
+        login(user)
+      } else {
+        setError('PIN salah. Coba lagi.')
+        setPin('')
+      }
+    } catch (e) {
+      setError(e.message || 'Terjadi kesalahan. Coba lagi.')
       setPin('')
+    } finally {
+      setLoading(false)
     }
   }
 

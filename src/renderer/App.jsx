@@ -1,6 +1,34 @@
 import { Routes, Route, NavLink, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
-import { useState, useEffect } from 'react'
+import { ThemeProvider, useTheme } from './context/ThemeContext'
+import { ToastProvider } from './context/ToastContext'
+import { useState, useEffect, Component } from 'react'
+
+class ErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { error: null } }
+  static getDerivedStateFromError(err) { return { error: err } }
+  render() {
+    if (!this.state.error) return this.props.children
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-50">
+        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full mx-4 text-center">
+          <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-7 h-7 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
+          </div>
+          <h2 className="text-lg font-bold text-gray-800 mb-2">Terjadi kesalahan</h2>
+          <p className="text-sm text-gray-500 mb-1">{this.state.error?.message}</p>
+          <p className="text-xs text-gray-400 mb-6">Coba refresh atau restart aplikasi.</p>
+          <button onClick={() => window.location.reload()}
+            className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
+            Refresh
+          </button>
+        </div>
+      </div>
+    )
+  }
+}
 import Dashboard from './pages/Dashboard'
 import Kasir from './pages/Kasir'
 import Products from './pages/Products'
@@ -26,6 +54,9 @@ import CashierReport from './pages/CashierReport'
 import ProductLabels from './pages/ProductLabels'
 import CashFlow from './pages/CashFlow'
 import LowStock from './pages/LowStock'
+import TutupBuku from './pages/TutupBuku'
+import ProductReport from './pages/ProductReport'
+import PriceHistory from './pages/PriceHistory'
 
 const OWNER_GROUPS = [
   {
@@ -48,6 +79,7 @@ const OWNER_GROUPS = [
       { to: '/stock-opname',   label: 'Stock Opname' },
       { to: '/stock-report',   label: 'Lap. Stok' },
       { to: '/low-stock',      label: 'Stok Menipis' },
+      { to: '/price-history',  label: 'Riwayat Harga' },
     ],
   },
   {
@@ -59,7 +91,8 @@ const OWNER_GROUPS = [
       { to: '/piutang',         label: 'Piutang' },
       { to: '/expenses',        label: 'Pengeluaran' },
       { to: '/cash-flow',       label: 'Arus Kas' },
-      { to: '/tutup-kas',       label: 'Tutup Kas' },
+      { to: '/tutup-kas',        label: 'Tutup Kas' },
+      { to: '/tutup-buku',       label: 'Tutup Buku' },
     ],
   },
   {
@@ -67,8 +100,9 @@ const OWNER_GROUPS = [
     items: [
       { to: '/customers',     label: 'Pelanggan' },
       { to: '/suppliers',     label: 'Supplier' },
-      { to: '/cashier-report', label: 'Lap. Kasir' },
-      { to: '/shifts',         label: 'Riwayat Shift' },
+      { to: '/cashier-report',  label: 'Lap. Kasir' },
+      { to: '/product-report',  label: 'Lap. Produk' },
+      { to: '/shifts',          label: 'Riwayat Shift' },
       { to: '/activity-log',   label: 'Log Aktivitas' },
       { to: '/reports',        label: 'Laporan' },
       { to: '/settings',      label: 'Pengaturan' },
@@ -219,13 +253,14 @@ const navLinkClass = ({ isActive }) =>
       : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
   }`
 
-function Sidebar({ groups, currentUser, onLogout }) {
+function Sidebar({ groups, currentUser, onLogout, isClient, isServer, serverUrl }) {
   const [notifCounts, setNotifCounts] = useState(null)
   const [showNotif, setShowNotif] = useState(false)
   const [search, setSearch] = useState('')
   const [openGroups, setOpenGroups] = useState({})
   const navigate = useNavigate()
   const location = useLocation()
+  const { dark, toggle } = useTheme()
 
   useEffect(() => {
     const fetch = () => window.electronAPI.getNotificationCounts().then(setNotifCounts)
@@ -324,12 +359,40 @@ function Sidebar({ groups, currentUser, onLogout }) {
       )}
 
       <div className="border-t border-gray-100 px-4 py-3">
+        {isClient && (
+          <div className="mb-2 flex items-center gap-1.5 px-2 py-1 bg-blue-50 border border-blue-200 rounded-lg">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0 animate-pulse" />
+            <p className="text-[10px] text-blue-700 font-medium truncate">
+              Server: {serverUrl.replace(/^https?:\/\//, '')}
+            </p>
+          </div>
+        )}
+        {isServer && (
+          <div className="mb-2 flex items-center gap-1.5 px-2 py-1 bg-green-50 border border-green-200 rounded-lg">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" />
+            <p className="text-[10px] text-green-700 font-medium">Mode Server aktif</p>
+          </div>
+        )}
         <div className="flex items-center justify-between mb-2">
           <div className="min-w-0">
             <p className="text-xs font-medium text-gray-700 truncate">{currentUser.name}</p>
             <p className="text-[10px] text-gray-400">{currentUser.role === 'owner' ? 'Pemilik' : 'Kasir'}</p>
           </div>
-          <BellIcon counts={notifCounts} onClick={() => setShowNotif(s => !s)} />
+          <div className="flex items-center gap-1">
+            <button onClick={toggle} title={dark ? 'Mode Terang' : 'Mode Gelap'}
+              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors">
+              {dark ? (
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m8.66-9H21M3 12H2m15.36-6.36l-.71.71M6.34 17.66l-.71.71m12.73 0l-.71-.71M6.34 6.34l-.71-.71M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+              ) : (
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                </svg>
+              )}
+            </button>
+            <BellIcon counts={notifCounts} onClick={() => setShowNotif(s => !s)} />
+          </div>
         </div>
         <button onClick={onLogout}
           className="w-full py-1.5 text-xs bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 font-medium transition-colors">
@@ -340,8 +403,41 @@ function Sidebar({ groups, currentUser, onLogout }) {
   )
 }
 
+function useServerStatus() {
+  const [mode, setMode] = useState('standalone')
+  const [serverUrl, setServerUrl] = useState('')
+  const [online, setOnline] = useState(true)
+
+  useEffect(() => {
+    window.electronAPI.getNetworkMode().then(setMode)
+    window.electronAPI.getNetworkServerUrl().then(setServerUrl)
+  }, [])
+
+  const isClient = mode === 'client'
+  const isServer = mode === 'server'
+
+  useEffect(() => {
+    if (!isClient) return
+    let cancelled = false
+    const check = async () => {
+      try {
+        await window.electronAPI.networkPing()
+        if (!cancelled) setOnline(true)
+      } catch {
+        if (!cancelled) setOnline(false)
+      }
+    }
+    check()
+    const t = setInterval(check, 15000)
+    return () => { cancelled = true; clearInterval(t) }
+  }, [isClient])
+
+  return { isClient, isServer, serverUrl, online }
+}
+
 function AppShell() {
   const { currentUser, logout, checking } = useAuth()
+  const { isClient, isServer, serverUrl, online } = useServerStatus()
 
   if (checking) return <div className="flex items-center justify-center h-screen text-gray-400">Memuat...</div>
   if (!currentUser) return <Login />
@@ -351,9 +447,19 @@ function AppShell() {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      <Sidebar groups={groups} currentUser={currentUser} onLogout={logout} />
+      <Sidebar groups={groups} currentUser={currentUser} onLogout={logout}
+        isClient={isClient} isServer={isServer} serverUrl={serverUrl} />
 
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto flex flex-col">
+        {isClient && !online && (
+          <div className="bg-red-600 text-white text-xs font-medium px-4 py-2 flex items-center gap-2 shrink-0">
+            <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
+            Server tidak dapat dijangkau — data mungkin tidak tersedia. Periksa koneksi LAN dan pastikan server PC sudah berjalan.
+          </div>
+        )}
+        <div className="flex-1 overflow-auto">
         <Routes>
           <Route path="/"          element={<Dashboard />} />
           <Route path="/kasir"     element={<Kasir />} />
@@ -372,9 +478,12 @@ function AppShell() {
             <Route path="/cash-flow"       element={<CashFlow />} />
             <Route path="/returns"         element={<Returns />} />
             <Route path="/tutup-kas"       element={<TutupKas />} />
+            <Route path="/tutup-buku"      element={<TutupBuku />} />
             <Route path="/customers"     element={<Customers />} />
             <Route path="/suppliers"     element={<Suppliers />} />
             <Route path="/cashier-report"  element={<CashierReport />} />
+            <Route path="/product-report"  element={<ProductReport />} />
+            <Route path="/price-history"   element={<PriceHistory />} />
             <Route path="/product-labels" element={<ProductLabels />} />
             <Route path="/shifts"         element={<Shifts />} />
             <Route path="/activity-log"   element={<ActivityLog />} />
@@ -383,6 +492,7 @@ function AppShell() {
           </>}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </div>
       </main>
     </div>
   )
@@ -390,8 +500,14 @@ function AppShell() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AppShell />
-    </AuthProvider>
+    <ThemeProvider>
+      <ToastProvider>
+        <ErrorBoundary>
+          <AuthProvider>
+            <AppShell />
+          </AuthProvider>
+        </ErrorBoundary>
+      </ToastProvider>
+    </ThemeProvider>
   )
 }

@@ -17,7 +17,10 @@ export default function StockOpname() {
   }, [])
 
   const loadHistory = async () => {
-    setHistory(await window.electronAPI.getStockOpnames())
+    try {
+      const data = await window.electronAPI.getStockOpnames()
+      setHistory(data || [])
+    } catch (_) {}
   }
 
   const handleActualChange = (id, val) => {
@@ -36,14 +39,17 @@ export default function StockOpname() {
     if (!confirm(`Simpan opname ini? Stok ${changedOnly.length} produk akan disesuaikan.`)) return
 
     setLoading(true)
-    const items = changedOnly.map(p => ({
-      productId: p.id,
-      productName: p.name,
-      systemStock: p.stock,
-      actualStock: parseInt(actuals[p.id], 10),
-    }))
-    await window.electronAPI.createStockOpname({ date, note, items })
-    setLoading(false)
+    try {
+      const items = changedOnly.map(p => ({
+        productId: p.id,
+        productName: p.name,
+        systemStock: p.stock,
+        actualStock: parseInt(actuals[p.id], 10),
+      }))
+      await window.electronAPI.createStockOpname({ date, note, items })
+    } finally {
+      setLoading(false)
+    }
 
     // Reset
     setActuals({})

@@ -59,6 +59,115 @@ function Field({ label, hint, children }) {
   )
 }
 
+function NetworkSection() {
+  const [form, setForm] = useState({ mode: 'standalone', serverPort: 3737, serverUrl: '' })
+  const [localIPs, setLocalIPs] = useState([])
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+
+  useEffect(() => {
+    window.electronAPI.getNetworkConfig().then(cfg => {
+      setForm({ mode: cfg.mode, serverPort: cfg.serverPort || 3737, serverUrl: cfg.serverUrl || '' })
+      setLoaded(true)
+    })
+    window.electronAPI.getLocalIPs().then(setLocalIPs)
+  }, [])
+
+  const handleSave = async () => {
+    setSaving(true)
+    await window.electronAPI.setNetworkConfig(form)
+    setSaving(false)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 5000)
+  }
+
+  if (!loaded) return <p className="text-sm text-gray-400">Memuat...</p>
+
+  const inp = 'w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+
+  return (
+    <div className="space-y-4">
+      <Field label="Mode Jaringan">
+        <div className="space-y-2">
+          {[
+            ['standalone', 'Standalone', 'Satu mesin, database lokal (default)'],
+            ['server', 'Server (PC utama)', 'PC ini menyediakan data untuk mesin lain di LAN'],
+            ['client', 'Client (Laptop/Kasir)', 'Mesin ini mengambil data dari server di LAN'],
+          ].map(([val, label, desc]) => (
+            <label key={val}
+              className={`flex items-start gap-3 cursor-pointer p-3 rounded-lg border transition-colors ${form.mode === val ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'}`}>
+              <input type="radio" name="network_mode" value={val}
+                checked={form.mode === val}
+                onChange={() => setForm(f => ({ ...f, mode: val }))}
+                className="mt-0.5 accent-blue-600" />
+              <div>
+                <p className="text-sm font-medium text-gray-800">{label}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{desc}</p>
+              </div>
+            </label>
+          ))}
+        </div>
+      </Field>
+
+      {form.mode === 'server' && (
+        <>
+          <Field label="Port RPC" hint="Port yang dibuka untuk koneksi client (default: 3737)">
+            <input type="number" min="1024" max="65535" className={inp}
+              value={form.serverPort}
+              onChange={e => setForm(f => ({ ...f, serverPort: parseInt(e.target.value) || 3737 }))} />
+          </Field>
+          {localIPs.length > 0 && (
+            <Field label="Alamat IP Lokal" hint="Salin salah satu dan isi ke pengaturan Client di laptop">
+              <div className="space-y-1.5">
+                {localIPs.map(ip => (
+                  <div key={ip.address} className="flex items-center gap-3">
+                    <code className="text-sm bg-blue-50 border border-blue-200 text-blue-700 px-3 py-1.5 rounded font-mono select-all">
+                      http://{ip.address}:{form.serverPort}
+                    </code>
+                    <span className="text-xs text-gray-400">{ip.name}</span>
+                  </div>
+                ))}
+              </div>
+            </Field>
+          )}
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
+            <strong>Penting:</strong> Pastikan port {form.serverPort} tidak diblokir firewall Windows.
+            Jalankan perintah ini di Command Prompt (Administrator):<br />
+            <code className="text-xs font-mono">netsh advfirewall firewall add rule name="KasirRPC" dir=in action=allow protocol=TCP localport={form.serverPort}</code>
+          </div>
+        </>
+      )}
+
+      {form.mode === 'client' && (
+        <>
+          <Field label="URL Server" hint="Alamat lengkap server PC — contoh: http://192.168.1.10:3737">
+            <input className={inp}
+              placeholder="http://192.168.1.10:3737"
+              value={form.serverUrl}
+              onChange={e => setForm(f => ({ ...f, serverUrl: e.target.value }))} />
+          </Field>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+            Semua data (produk, transaksi, laporan) akan diambil dari server. Print struk dan backup tetap berjalan lokal.
+          </div>
+        </>
+      )}
+
+      <div className="flex items-center gap-3 pt-1">
+        <button type="button" onClick={handleSave} disabled={saving}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+          {saving ? 'Menyimpan...' : 'Simpan Pengaturan Jaringan'}
+        </button>
+        {saved && (
+          <p className="text-sm text-amber-700 font-medium">
+            ✓ Tersimpan — restart aplikasi untuk menerapkan perubahan
+          </p>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function UserManager() {
   const { currentUser } = useAuth()
   const [users, setUsers] = useState([])
@@ -412,6 +521,13 @@ export default function Settings() {
               {autoBackupMsg && <span className="text-sm text-gray-600">{autoBackupMsg}</span>}
             </div>
           </Field>
+        </Section>
+      </div>
+
+      {/* Jaringan (LAN Sync) */}
+      <div className="mt-8">
+        <Section title="Jaringan (LAN Sync)">
+          <NetworkSection />
         </Section>
       </div>
 
